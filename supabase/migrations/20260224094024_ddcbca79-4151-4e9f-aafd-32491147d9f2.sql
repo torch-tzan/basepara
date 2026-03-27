@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN password_changed boolean NOT NULL DEFAULT false;

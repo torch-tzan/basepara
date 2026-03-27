@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "/Users/tinatzan/.nvm/versions/node/v24.14.1/bin/node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "8080", "--host"],
+      "port": 8080
+    },
+    {
+      "name": "preview",
+      "runtimeExecutable": "/Users/tinatzan/.nvm/versions/node/v24.14.1/bin/node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "preview", "--port", "4173", "--host"],
+      "port": 4173
+    }
+  ]
+}

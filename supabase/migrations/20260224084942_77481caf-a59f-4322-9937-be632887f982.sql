@@ -1,0 +1,1 @@
+ALTER TABLE public.students ADD COLUMN player_type text;

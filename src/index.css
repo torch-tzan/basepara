@@ -1,0 +1,317 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Light mode - Clean professional blue */
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 210 97% 27%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 210 97% 27%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 210 16% 47%;
+
+    --accent: 210 97% 96%;
+    --accent-foreground: 210 97% 27%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 210 97% 27%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar - Light */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 210 97% 27%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 97% 96%;
+    --sidebar-accent-foreground: 210 97% 27%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 210 97% 27%;
+    --sidebar: 0 0% 100%;
+
+    /* Charts */
+    --chart-1: 210 97% 27%;
+    --chart-2: 43 96% 56%;
+    --chart-3: 173 80% 40%;
+    --chart-4: 291 64% 42%;
+    --chart-5: 0 84% 60%;
+
+    /* Highlight/Gold color (for emphasis and important elements) */
+    --highlight: 45 75% 50%;
+    --highlight-foreground: 0 0% 100%;
+    --highlight-muted: 45 60% 94%;
+    --highlight-accent: 45 80% 45%;
+
+    /* Typography */
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+    /* Shadows */
+    --shadow-2xs: 0 1px 2px 0px hsl(0 0% 0% / 0.03);
+    --shadow-xs: 0 1px 2px 0px hsl(0 0% 0% / 0.04);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.06), 0 1px 2px -1px hsl(0 0% 0% / 0.06);
+    --shadow: 0 2px 4px 0px hsl(0 0% 0% / 0.06), 0 1px 2px -1px hsl(0 0% 0% / 0.06);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.06), 0 2px 4px -2px hsl(0 0% 0% / 0.06);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.06), 0 4px 6px -4px hsl(0 0% 0% / 0.06);
+    --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.06), 0 8px 10px -6px hsl(0 0% 0% / 0.06);
+    --shadow-2xl: 0 25px 50px -12px hsl(0 0% 0% / 0.15);
+    --tracking-normal: 0em;
+    --spacing: 0.25rem;
+  }
+
+  .dark {
+    /* Dark mode - Neutral gray (no blue tint) */
+    --background: 0 0% 20%; /* #333333 */
+    --foreground: 0 0% 95%;
+
+    --card: 0 0% 24%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 0 0% 26%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 210 97% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 28%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 0 0% 26%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 210 50% 25%;
+    --accent-foreground: 210 97% 75%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 30%;
+    --input: 0 0% 30%;
+    --ring: 210 97% 50%;
+
+    /* Sidebar - Dark */
+    --sidebar-background: 0 0% 20%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 210 97% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 50% 25%;
+    --sidebar-accent-foreground: 210 97% 75%;
+    --sidebar-border: 0 0% 30%;
+    --sidebar-ring: 210 97% 50%;
+    --sidebar: 0 0% 24%;
+
+    /* Charts - Dark */
+    --chart-1: 210 97% 50%;
+    --chart-2: 43 96% 56%;
+    --chart-3: 173 80% 45%;
+    --chart-4: 291 64% 50%;
+    --chart-5: 0 84% 60%;
+
+    /* Highlight/Gold color - Dark mode */
+    --highlight: 45 70% 55%;
+    --highlight-foreground: 0 0% 0%;
+    --highlight-muted: 45 40% 22%;
+    --highlight-accent: 45 75% 50%;
+
+    /* Shadows - Dark */
+    --shadow-2xs: 0 1px 2px 0px hsl(0 0% 0% / 0.2);
+    --shadow-xs: 0 1px 2px 0px hsl(0 0% 0% / 0.25);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.3), 0 1px 2px -1px hsl(0 0% 0% / 0.3);
+    --shadow: 0 2px 4px 0px hsl(0 0% 0% / 0.3), 0 1px 2px -1px hsl(0 0% 0% / 0.3);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.3), 0 2px 4px -2px hsl(0 0% 0% / 0.3);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.3), 0 4px 6px -4px hsl(0 0% 0% / 0.3);
+    --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.3), 0 8px 10px -6px hsl(0 0% 0% / 0.3);
+    --shadow-2xl: 0 25px 50px -12px hsl(0 0% 0% / 0.5);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Smooth theme transitions */
+@layer utilities {
+  .theme-transition {
+    @apply transition-colors duration-200;
+  }
+}
+
+/* Global theme transition - applies to all elements when theme changes */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    @apply transition-colors duration-300 ease-in-out;
+  }
+  
+  /* Disable transitions for specific elements that shouldn't animate */
+  .no-transition,
+  .no-transition *,
+  [data-no-transition],
+  [data-no-transition] * {
+    transition: none !important;
+  }
+}
+
+/* Page transition animations */
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.page-transition {
+  animation: page-fade-in 0.3s ease-out forwards;
+}
+
+.page-exit {
+  animation: page-fade-out 0.2s ease-in forwards;
+}
+
+/* Enhanced skeleton shimmer animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Ken Burns effect for background images */
+@keyframes ken-burns {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  50% {
+    transform: scale(1.1) translate(-2%, -1%);
+  }
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+}
+
+.animate-ken-burns {
+  animation: ken-burns 20s ease-in-out infinite;
+}
+
+/* Safe area for iOS devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Print styles for report export */
+@media print {
+  /* Hide navigation, sidebar, header actions */
+  nav,
+  aside,
+  [data-sidebar],
+  .print\:hidden,
+  button,
+  [role="navigation"] {
+    display: none !important;
+  }
+
+  /* Reset page layout */
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Remove shadows and borders for clean print */
+  .bg-card,
+  [class*="rounded-lg"] {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Full width content */
+  main,
+  [role="main"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Ensure charts render with colors */
+  svg {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Page break control */
+  .break-inside-avoid {
+    break-inside: avoid;
+  }
+
+  /* Ensure report cards don't break mid-content */
+  [class*="CardContent"],
+  [class*="card"] {
+    break-inside: avoid;
+  }
+
+  /* Page margins */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+}

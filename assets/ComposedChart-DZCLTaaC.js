@@ -1,1 +1,0 @@
-import{g as a,L as s,a as i,e as r,X as o,Y as x,h as e}from"./index-mvwCikxb.js";import{a as p,Z as t}from"./ScatterChart-Bgri99h0.js";var C=a({chartName:"ComposedChart",GraphicalChild:[s,i,r,p],axisComponents:[{axisType:"xAxis",AxisComp:o},{axisType:"yAxis",AxisComp:x},{axisType:"zAxis",AxisComp:t}],formatAxisMap:e});export{C};

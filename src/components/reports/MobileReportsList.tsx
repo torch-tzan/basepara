@@ -1,5 +1,4 @@
-import { useNavigate } from "react-router-dom";
-import { Download, ChevronRight, Circle, FileText } from "lucide-react";
+import { Download, Circle, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -18,10 +17,10 @@ interface Report {
 interface MobileReportsListProps {
   reports: Report[];
   isStudent?: boolean;
+  onReportClick?: (id: string) => void;
 }
 
-const MobileReportsList = ({ reports, isStudent = false }: MobileReportsListProps) => {
-  const navigate = useNavigate();
+const MobileReportsList = ({ reports, isStudent = false, onReportClick }: MobileReportsListProps) => {
   if (reports.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -39,8 +38,8 @@ const MobileReportsList = ({ reports, isStudent = false }: MobileReportsListProp
         return (
           <div
             key={report.id}
-            className="bg-card rounded-lg border border-border p-4 active:scale-[0.98] transition-transform cursor-pointer"
-            onClick={() => navigate(`/reports/${report.id}`)}
+            className="bg-card rounded-lg border border-border p-4 cursor-pointer active:bg-muted/50 transition-colors"
+            onClick={() => onReportClick?.(report.id)}
           >
             <div className="flex items-start justify-between gap-3">
               {/* Left: Content */}
@@ -91,7 +90,6 @@ const MobileReportsList = ({ reports, isStudent = false }: MobileReportsListProp
                 >
                   <Download className="w-4 h-4" />
                 </Button>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </div>
             </div>
           </div>

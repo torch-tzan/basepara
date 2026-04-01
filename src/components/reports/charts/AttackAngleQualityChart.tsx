@@ -1,20 +1,21 @@
 import { useState } from "react";
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ScatterChart, Scatter,
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, ScatterChart as ScatterIcon } from "lucide-react";
+import { TrendingUp, ScatterChart as ScatterIcon } from "lucide-react";
 
-const mockBarData = [
-  { range: "<-10°", avg: 1.05, max: 1.22 },
-  { range: "-10~-5°", avg: 1.12, max: 1.35 },
-  { range: "-5~0°", avg: 1.18, max: 1.42 },
-  { range: "0~5°", avg: 1.25, max: 1.48 },
-  { range: "5~10°", avg: 1.32, max: 1.52 },
-  { range: "10~15°", avg: 1.28, max: 1.45 },
-  { range: ">15°", avg: 1.15, max: 1.38 },
+// 規格：只要一條線，平均值就好
+const mockLineData = [
+  { range: "<-10°", avg: 1.05 },
+  { range: "-10~-5°", avg: 1.12 },
+  { range: "-5~0°", avg: 1.18 },
+  { range: "0~5°", avg: 1.25 },
+  { range: "5~10°", avg: 1.32 },
+  { range: "10~15°", avg: 1.28 },
+  { range: ">15°", avg: 1.15 },
 ];
 
 const mockScatterData = Array.from({ length: 45 }, (_, i) => ({
@@ -23,15 +24,15 @@ const mockScatterData = Array.from({ length: 45 }, (_, i) => ({
 }));
 
 const AttackAngleQualityChart = () => {
-  const [mode, setMode] = useState<"bar" | "scatter">("bar");
+  const [mode, setMode] = useState<"line" | "scatter">("line");
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Badge variant="secondary" className="text-[10px]">模擬數據</Badge>
         <div className="flex gap-1">
-          <Button variant={mode === "bar" ? "default" : "ghost"} size="sm" className="h-7 px-2" onClick={() => setMode("bar")}>
-            <BarChart3 className="w-3 h-3 mr-1" />長條
+          <Button variant={mode === "line" ? "default" : "ghost"} size="sm" className="h-7 px-2" onClick={() => setMode("line")}>
+            <TrendingUp className="w-3 h-3 mr-1" />趨勢
           </Button>
           <Button variant={mode === "scatter" ? "default" : "ghost"} size="sm" className="h-7 px-2" onClick={() => setMode("scatter")}>
             <ScatterIcon className="w-3 h-3 mr-1" />散佈
@@ -39,16 +40,15 @@ const AttackAngleQualityChart = () => {
         </div>
       </div>
       <div className="h-64">
-        {mode === "bar" ? (
+        {mode === "line" ? (
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={mockBarData}>
+            <LineChart data={mockLineData}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
               <XAxis dataKey="range" tick={{ fontSize: 10 }} />
               <YAxis domain={[0.8, 1.6]} tick={{ fontSize: 10 }} label={{ value: "Smash Factor", angle: -90, position: "insideLeft", style: { fontSize: 10 } }} />
               <Tooltip />
-              <Bar dataKey="avg" fill="#a78bfa" opacity={0.7} name="平均品質" />
-              <Line dataKey="max" stroke="#f87171" strokeWidth={2} dot={{ r: 3 }} name="最佳品質" />
-            </ComposedChart>
+              <Line dataKey="avg" stroke="#a78bfa" strokeWidth={2} dot={{ r: 3, fill: "#a78bfa" }} name="平均品質" />
+            </LineChart>
           </ResponsiveContainer>
         ) : (
           <ResponsiveContainer width="100%" height="100%">

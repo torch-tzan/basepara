@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import AppLayout from "@/components/layout/AppLayout";
@@ -26,7 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Plus, X, Download, ChevronRight, Circle, CalendarIcon } from "lucide-react";
+import { X, Download, Circle, CalendarIcon, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDataAccess, useFilteredStudentsByTeam } from "@/hooks/useDataAccess";
@@ -59,7 +59,7 @@ const Reports = () => {
   const isStudent = authUser?.role === "student";
   const isTeamCoach = authUser?.role === "team_coach";
   const isVenueCoach = authUser?.role === "venue_coach" || authUser?.role === "admin";
-  const canEdit = permissions.reports.canEdit;
+
   
   // Helper to get student by ID from context
   const getStudentById = (id: string) => students.find((s) => s.id === id);
@@ -216,12 +216,12 @@ const Reports = () => {
     <AppLayout
       title="檢測報告"
       headerAction={
-        canEdit ? (
-          <Button className="flex items-center gap-2" onClick={() => navigate("/reports/new")}>
-            <Plus className="w-4 h-4" />
+        <Button asChild>
+          <Link to="/reports/new">
+            <Plus className="w-4 h-4 mr-2" />
             新增報告
-          </Button>
-        ) : undefined
+          </Link>
+        </Button>
       }
     >
       <div className="space-y-4 md:space-y-6">
@@ -313,7 +313,6 @@ const Reports = () => {
                       <SelectItem value="all">全部項目</SelectItem>
                       <SelectItem value="投球">投球</SelectItem>
                       <SelectItem value="打擊">打擊</SelectItem>
-                      <SelectItem value="體測">體測</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -363,9 +362,10 @@ const Reports = () => {
                 共找到 {totalItems} 份報告
               </p>
             </div>
-            <MobileReportsList 
-              reports={displayReports} 
-              isStudent={isStudent} 
+            <MobileReportsList
+              reports={displayReports}
+              isStudent={isStudent}
+              onReportClick={(id) => navigate(`/reports/${id}`)}
             />
             {/* Mobile Pagination - simple load more or minimal */}
             {totalItems > itemsPerPage && (
@@ -403,12 +403,15 @@ const Reports = () => {
                 {!isStudent && <TableHead>選手</TableHead>}
                 <TableHead>檢測項目</TableHead>
                 <TableHead className="text-center">下載</TableHead>
-                <TableHead className="text-center">詳情</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {displayReports.map((report, idx) => (
-                <TableRow key={idx} className="cursor-pointer" onClick={() => navigate(`/reports/${report.id}`)}>
+                <TableRow
+                  key={idx}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/reports/${report.id}`)}
+                >
                   <TableCell className="text-foreground">{report.date}</TableCell>
                   {!isStudent && (
                     <TableCell className="text-foreground">
@@ -442,9 +445,6 @@ const Reports = () => {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); }}>
                       <Download className="w-4 h-4" />
                     </Button>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ))}

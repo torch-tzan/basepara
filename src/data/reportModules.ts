@@ -42,7 +42,7 @@ export const battingModules: ReportModule[] = [
   {
     id: "batting_3_3",
     name: "攻擊角度 / 擊球品質趨勢圖",
-    description: "區間分組長條圖 + 可切換散佈圖（Smash Factor）",
+    description: "單一平均線趨勢圖 + 可切換散佈圖（Smash Factor）",
     category: "batting",
     specRef: "3.3",
     status: "pending_data",
@@ -106,8 +106,8 @@ export const pitchingModules: ReportModule[] = [
   },
   {
     id: "pitching_4_3",
-    name: "進壘點散佈圖",
-    description: "散佈圖 + 好球帶背景框線（D3.js + SVG）",
+    name: "進壘點熱區圖",
+    description: "九宮格 + 外圈壞球區域進壘點熱區圖（SVG）",
     category: "pitching",
     specRef: "4.3",
     status: "placeholder",
@@ -147,15 +147,13 @@ export const nonPitchingModules: ReportModule[] = [
 
 // 根據報告類型取得可用模組
 export const getModulesByReportType = (
-  reportType: "打擊" | "投球" | "體測"
+  reportType: "打擊" | "投球"
 ): ReportModule[] => {
   switch (reportType) {
     case "打擊":
       return battingModules;
     case "投球":
       return pitchingModules;
-    case "體測":
-      return nonPitchingModules;
     default:
       return [];
   }

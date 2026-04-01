@@ -19,6 +19,7 @@ import {
   Lock,
   FolderHeart,
   Activity,
+  LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
@@ -60,6 +61,7 @@ const allNavItems: {
   { icon: Calendar, label: "課表管理", studentLabel: "課表管理", path: "/schedule", permissionId: "schedule" },
   { icon: Activity, label: "訓練紀錄", studentLabel: "訓練紀錄", path: "/training-records", permissionId: null }, // Visible based on role, students see their own
   { icon: LineChart, label: "檢測報告", studentLabel: "檢測報告", path: "/reports", permissionId: "reports" },
+  { icon: LayoutGrid, label: "圖表總覽", studentLabel: "圖表總覽", path: "/chart-overview", permissionId: null },
   { icon: Upload, label: "資料上傳", studentLabel: "資料上傳", path: "/upload", permissionId: "upload" },
   { icon: Shield, label: "球隊管理", studentLabel: "球隊管理", path: "/teams", permissionId: "teams" },
   { icon: UserRound, label: "學員資料管理", studentLabel: "個人資料", path: "/students", permissionId: "students" },

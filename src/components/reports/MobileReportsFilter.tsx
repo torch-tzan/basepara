@@ -96,7 +96,6 @@ const MobileReportsFilter = ({
             <SelectItem value="all">全部類型</SelectItem>
             <SelectItem value="投球">投球</SelectItem>
             <SelectItem value="打擊">打擊</SelectItem>
-            <SelectItem value="體測">體測</SelectItem>
           </SelectContent>
         </Select>
       </div>

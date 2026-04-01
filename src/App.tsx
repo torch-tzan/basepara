@@ -15,8 +15,9 @@ import TeamForm from "./pages/TeamForm";
 import TeamDetail from "./pages/TeamDetail";
 import Schedule from "./pages/Schedule";
 import Reports from "./pages/Reports";
-import ReportNew from "./pages/ReportNew";
 import ReportView from "./pages/ReportView";
+import ReportNew from "./pages/ReportNew";
+import ChartOverview from "./pages/ChartOverview";
 import Templates from "./pages/Templates";
 import TemplateCategories from "./pages/TemplateCategories";
 import CourseForm from "./pages/CourseForm";
@@ -66,7 +67,7 @@ const App = () => {
                     <SidebarContext.Provider value={{ sidebarCollapsed, setSidebarCollapsed }}>
                       <Toaster />
                     <Sonner />
-                    <BrowserRouter>
+                    <BrowserRouter basename={import.meta.env.BASE_URL}>
                       <Routes>
                         <Route path="/" element={<Login />} />
                         <Route path="/login" element={<Login />} />
@@ -89,6 +90,7 @@ const App = () => {
                         <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
                         <Route path="/reports/new" element={<ProtectedRoute><ReportNew /></ProtectedRoute>} />
                         <Route path="/reports/:reportId" element={<ProtectedRoute><ReportView /></ProtectedRoute>} />
+                        <Route path="/chart-overview" element={<ProtectedRoute><ChartOverview /></ProtectedRoute>} />
                         <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
                         <Route path="/templates/categories/:type" element={<ProtectedRoute><TemplateCategories /></ProtectedRoute>} />
                         <Route path="/templates/course/add" element={<ProtectedRoute><CourseForm /></ProtectedRoute>} />

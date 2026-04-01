@@ -22,6 +22,7 @@ export const useReports = () => {
       const { data, error } = await supabase
         .from("reports")
         .select("*")
+        .in("type", ["打擊", "投球"])
         .order("date", { ascending: false });
 
       if (error) throw error;
@@ -35,10 +36,11 @@ export const useReportsWithDetails = () => {
   return useQuery({
     queryKey: ["reports", "with-details"],
     queryFn: async (): Promise<ReportWithDetails[]> => {
-      // Fetch reports
+      // Fetch reports (exclude 體測 — only 打擊/投球 are valid report types)
       const { data: reports, error: reportsError } = await supabase
         .from("reports")
         .select("*")
+        .in("type", ["打擊", "投球"])
         .order("date", { ascending: false });
 
       if (reportsError) throw reportsError;
@@ -131,7 +133,6 @@ const DEFAULT_FITNESS_MODULES = {
 function getDefaultModulesByType(type: string | null) {
   if (type === "打擊") return DEFAULT_BATTING_MODULES;
   if (type === "投球") return DEFAULT_PITCHING_MODULES;
-  if (type === "體測") return DEFAULT_FITNESS_MODULES;
   return DEFAULT_BATTING_MODULES;
 }
 
@@ -152,7 +153,26 @@ export const useReportById = (id: string | undefined) => {
         // If module_config is missing, auto-assign default modules by report type
         if (!data.module_config) {
           const defaultModules = getDefaultModulesByType(data.type);
-          return { ...data, module_config: defaultModules as Record<string, unknown> };
+          (data as Record<string, unknown>).module_config = defaultModules;
+        }
+        // If student_snapshot is missing, fetch student info and embed it
+        if (!data.student_snapshot && data.student_id) {
+          const { data: student } = await supabase
+            .from("students")
+            .select("name, team_id")
+            .eq("id", data.student_id)
+            .maybeSingle();
+          if (student) {
+            const { data: team } = await supabase
+              .from("teams")
+              .select("name")
+              .eq("id", student.team_id)
+              .maybeSingle();
+            (data as Record<string, unknown>).student_snapshot = {
+              name: student.name,
+              team: team?.name || "",
+            };
+          }
         }
         return data;
       }

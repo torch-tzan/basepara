@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ArrowUp, ArrowDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export interface MetricRow {
   /** 參數名稱 */
@@ -28,6 +30,14 @@ export interface MetricRow {
   sd?: number | null;
 }
 
+/**
+ * 顯示模式：
+ * - mean 只顯示平均值
+ * - mean_sd 顯示「平均值 ± 標準差」
+ * - percent 顯示層級百分位（選手在該層級的相對位置）
+ */
+export type DisplayMode = "mean" | "mean_sd" | "percent";
+
 interface DataTableProps {
   title: string;
   rows: MetricRow[];
@@ -42,6 +52,8 @@ interface DataTableProps {
   subtitle?: string;
   /** 層級平均基準標籤（如「高中」） */
   levelLabel?: string;
+  /** 是否顯示「顯示模式切換」按鈕（預設顯示） */
+  allowModeSwitch?: boolean;
 }
 
 /** 格式化數值 */
@@ -49,6 +61,17 @@ const fmt = (v: number | string | null | undefined, decimals = 1): string => {
   if (v == null) return "—";
   if (typeof v === "string") return v;
   return v.toFixed(decimals);
+};
+
+/** 常態分佈 CDF 近似（Abramowitz & Stegun） */
+const normalCDF = (z: number): number => {
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989423 * Math.exp((-z * z) / 2);
+  const prob =
+    d *
+    t *
+    (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return z > 0 ? 1 - prob : prob;
 };
 
 /** 判斷色彩標示（與層級平均比較） */
@@ -113,8 +136,27 @@ const DataTable = ({
   showLevelAvg = true,
   subtitle,
   levelLabel,
+  allowModeSwitch = true,
 }: DataTableProps) => {
+  const [mode, setMode] = useState<DisplayMode>("mean");
   const prevColumns = Array.from({ length: Math.max(0, previousCount) }, (_, i) => i);
+
+  /** 依顯示模式格式化選手數據 */
+  const formatValue = (row: MetricRow): string => {
+    if (row.value == null) return "—";
+    if (typeof row.value === "string") return row.value;
+
+    if (mode === "mean_sd" && row.sd != null) {
+      return `${fmt(row.value, row.decimals)} ± ${fmt(row.sd, row.decimals)}`;
+    }
+    if (mode === "percent" && row.levelAvg != null && row.levelSD != null && row.levelSD > 0) {
+      // 以 z-score 估算百分位 (粗略 normal CDF 近似)
+      const z = (row.value - row.levelAvg) / row.levelSD;
+      const pct = Math.round(normalCDF(z) * 100);
+      return `${pct}%`;
+    }
+    return fmt(row.value, row.decimals);
+  };
 
   return (
     <div className="mb-6">
@@ -122,6 +164,34 @@ const DataTable = ({
         <h3 className="text-base font-semibold text-foreground">{title}</h3>
         {subtitle && (
           <span className="text-xs text-muted-foreground">{subtitle}</span>
+        )}
+        {allowModeSwitch && (
+          <div className="ml-auto flex items-center gap-1 print:hidden">
+            <Button
+              variant={mode === "mean" ? "default" : "outline"}
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setMode("mean")}
+            >
+              平均值
+            </Button>
+            <Button
+              variant={mode === "mean_sd" ? "default" : "outline"}
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setMode("mean_sd")}
+            >
+              平均 ± SD
+            </Button>
+            <Button
+              variant={mode === "percent" ? "default" : "outline"}
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setMode("percent")}
+            >
+              百分位
+            </Button>
+          </div>
         )}
       </div>
 
@@ -176,12 +246,7 @@ const DataTable = ({
                     )}
                   </td>
                   <td className={cn("py-2 px-3 text-center font-medium", colorClass)}>
-                    {fmt(row.value, row.decimals)}
-                    {row.showSD && row.sd != null && (
-                      <span className="text-muted-foreground text-xs">
-                        {" "}± {fmt(row.sd, row.decimals)}
-                      </span>
-                    )}
+                    {formatValue(row)}
                     {arrow && <span className="ml-1">{arrow}</span>}
                   </td>
                   {prevColumns.map((n) => {

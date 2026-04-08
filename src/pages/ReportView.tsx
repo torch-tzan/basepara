@@ -1,9 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
 import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Printer, Download, FileText } from "lucide-react";
+import { Printer, Download, X, Plus } from "lucide-react";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { useReportById } from "@/hooks/useSupabaseReports";
 import { useStudents } from "@/contexts/StudentsContext";
@@ -17,9 +16,10 @@ import PitchTypeSection, { allPitchTypes } from "@/components/reports/PitchTypeS
 import MobilitySection from "@/components/reports/MobilitySection";
 import MechanicsChecklist from "@/components/reports/MechanicsChecklist";
 import MechanicsExplanation from "@/components/reports/MechanicsExplanation";
+import VideoPlayer from "@/components/reports/VideoPlayer";
 import { battingMechanicsItems, pitchingMechanicsItems } from "@/components/reports/MechanicsChecklist";
 import ChartModuleCard from "@/components/reports/ChartModuleCard";
-import { getModuleById } from "@/data/reportModules";
+import { getModuleById, battingModules, pitchingModules } from "@/data/reportModules";
 
 /** 每頁最多放幾個圖表 */
 const CHARTS_PER_PAGE = 2;
@@ -70,8 +70,8 @@ const ReportView = () => {
     };
   }, [report, students, teams]);
 
-  // Parse chart module config → resolved modules
-  const chartModules = useMemo(() => {
+  // Parse chart module config → initial module list
+  const initialChartModules = useMemo(() => {
     if (!report?.module_config) return [];
     const config = report.module_config as {
       modules?: Array<{ module_id: string; order: number }>;
@@ -79,8 +79,29 @@ const ReportView = () => {
     return (config.modules || [])
       .sort((a, b) => a.order - b.order)
       .map((m) => getModuleById(m.module_id))
-      .filter((m) => m != null);
+      .filter((m): m is NonNullable<ReturnType<typeof getModuleById>> => m != null);
   }, [report]);
+
+  /** 可變的圖表清單 — 使用者在檢視報告時可即時新增/刪除 */
+  const [chartModules, setChartModules] = useState<typeof initialChartModules>([]);
+  const [showAddPicker, setShowAddPicker] = useState(false);
+
+  // 當 initialChartModules 變更時同步
+  useEffect(() => {
+    setChartModules(initialChartModules);
+  }, [initialChartModules]);
+
+  const removeChart = (id: string) => {
+    setChartModules((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  const addChart = (id: string) => {
+    const mod = getModuleById(id);
+    if (mod && !chartModules.some((m) => m.id === id)) {
+      setChartModules((prev) => [...prev, mod]);
+    }
+    setShowAddPicker(false);
+  };
 
   /** 從 chart_data 讀取報告設定（比較次數、層級、測驗方式、無數據區塊） */
   const reportConfig = useMemo(() => {
@@ -216,30 +237,84 @@ const ReportView = () => {
   if (hasSection("mechanics")) {
     pages.push({
       key: "mechanics",
-      render: () => <MechanicsChecklist type={isBatting ? "batting" : "pitching"} />,
+      render: () => (
+        <>
+          <MechanicsChecklist type={isBatting ? "batting" : "pitching"} />
+          <VideoPlayer type={isBatting ? "batting" : "pitching"} />
+        </>
+      ),
     });
 
     // 機制說明
     // 根據會議決議：僅顯示被標示為問題的機制說明；個人化建議來自語音轉文字或教練手動輸入，
-    // 若無上傳錄音也無手動輸入，則不顯示個人化建議區塊
+    // 若無上傳錄音也無手動輸入，則不顯示個人化建議區塊（傳 undefined 即不顯示）
     pages.push({
       key: "mechanics-explain",
-      render: () => <MechanicsExplanation items={mechanicsItems} />,
+      render: () => (
+        <MechanicsExplanation
+          items={mechanicsItems}
+          personalAdvice={report.markdown_notes || undefined}
+        />
+      ),
     });
   }
 
+  // 可新增的圖表清單（排除已加入的）
+  const availableToAdd = (isBatting ? battingModules : pitchingModules).filter(
+    (m) => !chartModules.some((cm) => cm.id === m.id)
+  );
+
   // 圖表頁面（每頁最多 CHARTS_PER_PAGE 張圖表）
   chartPages.forEach((pageModules, idx) => {
+    const isLastChartPage = idx === chartPages.length - 1;
     pages.push({
       key: `charts-${idx}`,
       render: () => (
         <div className="space-y-6">
-          <h3 className="text-base font-semibold text-foreground">
-            圖表分析{chartPages.length > 1 ? ` (${idx + 1}/${chartPages.length})` : ""}
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-foreground">
+              圖表分析{chartPages.length > 1 ? ` (${idx + 1}/${chartPages.length})` : ""}
+            </h3>
+            {isLastChartPage && availableToAdd.length > 0 && (
+              <div className="relative print:hidden">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddPicker((v) => !v)}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  新增圖表
+                </Button>
+                {showAddPicker && (
+                  <div className="absolute right-0 top-full mt-1 z-10 w-72 rounded-lg border border-border bg-card shadow-lg p-2 space-y-1 max-h-80 overflow-y-auto">
+                    {availableToAdd.map((mod) => (
+                      <button
+                        key={mod.id}
+                        className="w-full text-left p-2 rounded hover:bg-muted/50 text-sm"
+                        onClick={() => addChart(mod.id)}
+                      >
+                        <div className="font-medium">{mod.name}</div>
+                        <div className="text-[10px] text-muted-foreground">{mod.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-6">
             {pageModules.map((mod) => (
-              <ChartModuleCard key={mod.id} module={mod} />
+              <div key={mod.id} className="relative group">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background border border-border shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 print:hidden"
+                  onClick={() => removeChart(mod.id)}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+                <ChartModuleCard module={mod} />
+              </div>
             ))}
           </div>
         </div>
@@ -247,18 +322,39 @@ const ReportView = () => {
     });
   });
 
-  // 教練備註
-  if (report.markdown_notes) {
+  // 若所有圖表被刪除且有可新增選項，顯示空白新增頁
+  if (chartModules.length === 0 && availableToAdd.length > 0) {
     pages.push({
-      key: "notes",
+      key: "charts-empty",
       render: () => (
-        <div className="space-y-4">
-          <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary" />
-            教練備註
-          </h3>
-          <div className="prose prose-sm dark:prose-invert max-w-none bg-muted/30 rounded-lg p-4 border border-border/50">
-            <ReactMarkdown>{report.markdown_notes}</ReactMarkdown>
+        <div className="space-y-6">
+          <h3 className="text-base font-semibold text-foreground">圖表分析</h3>
+          <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-border/50 rounded-lg print:hidden">
+            <p className="text-sm text-muted-foreground mb-4">尚未加入任何圖表</p>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAddPicker((v) => !v)}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                新增圖表
+              </Button>
+              {showAddPicker && (
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-10 w-72 rounded-lg border border-border bg-card shadow-lg p-2 space-y-1 max-h-80 overflow-y-auto">
+                  {availableToAdd.map((mod) => (
+                    <button
+                      key={mod.id}
+                      className="w-full text-left p-2 rounded hover:bg-muted/50 text-sm"
+                      onClick={() => addChart(mod.id)}
+                    >
+                      <div className="font-medium">{mod.name}</div>
+                      <div className="text-[10px] text-muted-foreground">{mod.description}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ),

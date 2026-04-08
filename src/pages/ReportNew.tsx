@@ -4,6 +4,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -28,6 +29,8 @@ import {
   FileText,
   X,
   GripVertical,
+  Mic,
+  Upload,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -100,6 +103,9 @@ const ReportNew = () => {
 
   // Step 2: 圖表（選擇 + 排序合併）
   const [selectedModules, setSelectedModules] = useState<SelectedModule[]>([]);
+
+  // Step 3: 個人化建議（語音轉文字或手動輸入，空白時 PDF 輸出不顯示）
+  const [personalAdvice, setPersonalAdvice] = useState("");
 
   // UI
   const [showPreview, setShowPreview] = useState(false);
@@ -234,7 +240,7 @@ const ReportNew = () => {
         type: reportType as "打擊" | "投球",
         title,
         module_config: moduleConfig as unknown as Record<string, unknown>,
-        markdown_notes: null,
+        markdown_notes: personalAdvice.trim() || null,
         student_snapshot: { name: selectedStudent.name, team: selectedStudent.teamName } as unknown as Record<string, unknown>,
         chart_data: chartData as unknown as Record<string, unknown>,
         coach_id: authUser?.id || null,
@@ -508,6 +514,40 @@ const ReportNew = () => {
                   </CardContent>
                 </Card>
               )}
+
+              {/* ═══ Step 3: 個人化建議 ═══ */}
+              <Card className={!isStep1Complete ? "opacity-50 pointer-events-none" : ""}>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-2">
+                    <div className={`flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold ${
+                      isStep1Complete ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}>3</div>
+                    <CardTitle className="text-lg">個人化建議（選填）</CardTitle>
+                  </div>
+                  <CardDescription>
+                    可上傳教練錄音檔自動轉文字，或直接輸入文字內容。空白時 PDF 輸出不顯示此區塊。
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" disabled>
+                      <Mic className="w-3.5 h-3.5 mr-1.5" />
+                      上傳錄音檔（AI 轉文字）
+                    </Button>
+                    <span className="text-xs text-muted-foreground">或直接在下方輸入</span>
+                  </div>
+                  <Textarea
+                    value={personalAdvice}
+                    onChange={(e) => setPersonalAdvice(e.target.value)}
+                    placeholder="輸入個人化建議內容，或上傳錄音檔由 AI 自動轉文字後再編輯..."
+                    className="min-h-[120px] text-sm resize-none"
+                  />
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Upload className="w-3 h-3" />
+                    <span>未來將支援從 iPhone 錄音程式直接選取檔案上傳</span>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* 底部 */}
               <div className="flex items-center justify-between pb-8">

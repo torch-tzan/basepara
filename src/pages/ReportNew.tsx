@@ -49,7 +49,14 @@ interface SelectedModule {
   order: number;
 }
 
-type CompareMode = "single" | "with_previous" | "none";
+/** 比較次數：0 單次 / 1 +前一次 / 2 +前兩次 / 3 +前三次 */
+type CompareCount = 0 | 1 | 2;
+
+/** 層級基準 */
+type LevelBaseline = "國中" | "高中" | "大學" | "職業";
+
+/** 測驗方式 */
+type TestMethod = "T座" | "實戰" | "拋打" | "發球機";
 
 const FIXED_SECTIONS: Record<string, { label: string; description: string; dataSource: string }[]> = {
   打擊: [
@@ -86,7 +93,9 @@ const ReportNew = () => {
   const [reportType, setReportType] = useState<ReportType | "">("");
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [testDate, setTestDate] = useState("");
-  const [compareMode, setCompareMode] = useState<CompareMode>("with_previous");
+  const [compareCount, setCompareCount] = useState<CompareCount>(1);
+  const [levelBaseline, setLevelBaseline] = useState<LevelBaseline>("高中");
+  const [testMethod, setTestMethod] = useState<TestMethod>("實戰");
   const [reportTitle, setReportTitle] = useState("");
 
   // Step 2: 圖表（選擇 + 排序合併）
@@ -123,12 +132,13 @@ const ReportNew = () => {
     return MOCK_TEST_DATES[reportType] || [];
   }, [reportType]);
 
-  const previousDate = useMemo(() => {
-    if (!testDate || compareMode !== "with_previous") return null;
+  /** 依 compareCount 自動推算前 N 次日期（測驗日期下拉是遞減排序） */
+  const previousDates = useMemo<string[]>(() => {
+    if (!testDate || compareCount === 0) return [];
     const idx = availableDates.indexOf(testDate);
-    if (idx < 0 || idx >= availableDates.length - 1) return null;
-    return availableDates[idx + 1];
-  }, [testDate, compareMode, availableDates]);
+    if (idx < 0) return [];
+    return availableDates.slice(idx + 1, idx + 1 + compareCount);
+  }, [testDate, compareCount, availableDates]);
 
   const isDataLoaded = !!reportType && !!selectedStudentId && !!testDate;
 
@@ -208,7 +218,13 @@ const ReportNew = () => {
         return { module_id: m.moduleId, module_name: mod?.name || m.moduleId, order: m.order };
       }),
     };
-    const chartData = { test_date: testDate, compare_mode: compareMode, previous_date: previousDate };
+    const chartData = {
+      test_date: testDate,
+      compare_count: compareCount,
+      previous_dates: previousDates,
+      level_baseline: levelBaseline,
+      test_method: testMethod,
+    };
 
     try {
       const { error } = await supabase.from("reports").insert({
@@ -296,14 +312,42 @@ const ReportNew = () => {
                     </div>
                     <div className="space-y-2">
                       <Label>比較模式</Label>
-                      <Select value={compareMode} onValueChange={(v) => setCompareMode(v as CompareMode)}>
+                      <Select value={String(compareCount)} onValueChange={(v) => setCompareCount(Number(v) as CompareCount)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="with_previous">連同前一次檢測</SelectItem>
-                          <SelectItem value="single">僅本次檢測</SelectItem>
-                          <SelectItem value="none">不比較</SelectItem>
+                          <SelectItem value="0">僅本次檢測</SelectItem>
+                          <SelectItem value="1">連同前一次檢測</SelectItem>
+                          <SelectItem value="2">連同前兩次檢測</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>比較層級基準</Label>
+                      <Select value={levelBaseline} onValueChange={(v) => setLevelBaseline(v as LevelBaseline)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="國中">國中</SelectItem>
+                          <SelectItem value="高中">高中</SelectItem>
+                          <SelectItem value="大學">大學</SelectItem>
+                          <SelectItem value="職業">職業</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground">用於層級平均 ± 0.5SD 的比較基準</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>測驗方式</Label>
+                      <Select value={testMethod} onValueChange={(v) => setTestMethod(v as TestMethod)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="實戰">實戰</SelectItem>
+                          <SelectItem value="T座">T座</SelectItem>
+                          <SelectItem value="拋打">拋打</SelectItem>
+                          <SelectItem value="發球機">發球機</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground">比較前次時僅抓取相同測驗方式的數據</p>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -322,7 +366,8 @@ const ReportNew = () => {
                         <span className="font-medium text-green-700 dark:text-green-400">數據已載入</span>
                         <span className="text-muted-foreground ml-2">
                           {selectedStudent?.name} · {reportType} · {testDate}
-                          {previousDate && ` （比較：${previousDate}）`}
+                          {previousDates.length > 0 && ` （比較：${previousDates.join("、")}）`}
+                          {` · ${testMethod} · 對比${levelBaseline}`}
                         </span>
                       </div>
                       <Badge variant="outline" className="text-green-600 dark:text-green-400 border-green-500/30">
@@ -493,7 +538,14 @@ const ReportNew = () => {
                       <div className="flex justify-between"><span className="text-muted-foreground">學校</span><span>{selectedStudent.teamName}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">報告類型</span><Badge variant="outline">{reportType}</Badge></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">檢測日期</span><span className="font-medium">{testDate}</span></div>
-                      {previousDate && <div className="flex justify-between"><span className="text-muted-foreground">比較日期</span><span className="text-muted-foreground">{previousDate}</span></div>}
+                      {previousDates.length > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">比較日期</span>
+                          <span className="text-muted-foreground text-right">{previousDates.join("、")}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between"><span className="text-muted-foreground">層級基準</span><Badge variant="outline">{levelBaseline}</Badge></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">測驗方式</span><Badge variant="outline">{testMethod}</Badge></div>
                     </div>
                   )}
 

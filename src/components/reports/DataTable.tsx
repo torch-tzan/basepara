@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUp, ArrowDown, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface MetricRow {
   /** 參數名稱 */
@@ -28,6 +29,15 @@ export interface MetricRow {
   showSD?: boolean;
   /** 標準差值（用於 平均±標準差 顯示） */
   sd?: number | null;
+  /**
+   * OK 區間 [min, max]：數值落在區間內為綠色，超出為紅色。
+   * 優先於 levelAvg/levelSD 的色彩判斷。
+   */
+  okRange?: [number, number];
+  /** 欄位說明/計算公式 tooltip（例如「連結性差異 = A - B」） */
+  formula?: string;
+  /** 欄位名稱對應的後端資料來源（顯示在 tooltip 中） */
+  dataSource?: string;
 }
 
 /**
@@ -74,14 +84,28 @@ const normalCDF = (z: number): number => {
   return z > 0 ? 1 - prob : prob;
 };
 
-/** 判斷色彩標示（與層級平均比較） */
+/**
+ * 判斷色彩標示優先順序：
+ * 1. 若有 okRange，直接依區間判斷（綠色=在範圍、紅色=超出）
+ * 2. 否則與層級平均 ± 0.5SD 比較
+ */
 const getColorClass = (
   value: number | string | null,
   avg: number | null | undefined,
   sd: number | null | undefined,
-  reversed?: boolean
+  reversed?: boolean,
+  okRange?: [number, number]
 ): string => {
-  if (value == null || avg == null || sd == null || typeof value === "string") return "";
+  if (value == null || typeof value === "string") return "";
+
+  // 優先判斷 OK 區間
+  if (okRange) {
+    const [min, max] = okRange;
+    if (value >= min && value <= max) return "text-green-600 dark:text-green-400";
+    return "text-red-600 dark:text-red-400";
+  }
+
+  if (avg == null || sd == null) return "";
   const threshold = 0.5 * sd;
   const above = value > avg + threshold;
   const below = value < avg - threshold;
@@ -226,7 +250,8 @@ const DataTable = ({
                 row.value,
                 row.levelAvg,
                 row.levelSD,
-                row.reversed
+                row.reversed,
+                row.okRange
               );
               // 箭頭只比對「前一次」(n=0)
               const firstPrev = getPrevAt(row, 0);
@@ -235,15 +260,38 @@ const DataTable = ({
                   ? getArrow(row.value, firstPrev, row.reversed)
                   : null;
 
+              const hasTooltip = !!(row.formula || row.dataSource || row.okRange);
+
               return (
                 <tr key={row.label} className="border-b border-border/50 hover:bg-muted/20">
                   <td className="py-2 px-3 text-foreground">
-                    {row.label}
-                    {row.unit && (
-                      <span className="text-[10px] text-muted-foreground ml-1">
-                        ({row.unit})
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1">
+                      {row.label}
+                      {row.unit && (
+                        <span className="text-[10px] text-muted-foreground">
+                          ({row.unit})
+                        </span>
+                      )}
+                      {hasTooltip && (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-3 h-3 text-muted-foreground/60 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs text-xs">
+                              {row.formula && <div><strong>公式：</strong>{row.formula}</div>}
+                              {row.okRange && (
+                                <div>
+                                  <strong>OK 區間：</strong>
+                                  {row.okRange[0]} ~ {row.okRange[1]}
+                                </div>
+                              )}
+                              {row.dataSource && <div><strong>資料來源：</strong>{row.dataSource}</div>}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </span>
                   </td>
                   <td className={cn("py-2 px-3 text-center font-medium", colorClass)}>
                     {formatValue(row)}

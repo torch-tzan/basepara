@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import TrainingMediaUpload from "@/components/upload/TrainingMediaUpload";
+import StructuredUpload from "@/components/upload/StructuredUpload";
+import { cn } from "@/lib/utils";
 import {
   LineChart,
   Heart,
@@ -16,6 +18,8 @@ import {
   Loader2,
   Mic,
   Video,
+  FileUp,
+  ClipboardList,
 } from "lucide-react";
 
 const uploadTypes = [
@@ -30,7 +34,10 @@ const uploadTypes = [
   { id: "training-video", name: "訓練影片", icon: Video, disabled: false },
 ];
 
+type UploadMode = "scattered" | "structured";
+
 const Upload = () => {
+  const [mode, setMode] = useState<UploadMode>("scattered");
   const [selectedType, setSelectedType] = useState("batting-training");
   const [uploadedFile, setUploadedFile] = useState<{
     name: string;
@@ -89,6 +96,69 @@ const Upload = () => {
   return (
     <AppLayout title="資料上傳">
       <div className="space-y-6">
+        {/* ═══ 模式切換：單檔上傳 / 當日整批上傳 ═══ */}
+        <section className="bg-card rounded-lg border border-border p-2">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setMode("scattered")}
+              className={cn(
+                "flex items-start gap-3 p-4 rounded-md text-left transition-all",
+                mode === "scattered"
+                  ? "bg-primary/10 border border-primary/40"
+                  : "border border-transparent hover:bg-accent/40"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                  mode === "scattered" ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                )}
+              >
+                <FileUp className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className={cn("text-sm font-medium", mode === "scattered" ? "text-foreground" : "text-muted-foreground")}>
+                  零散數據上傳
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  依檔案類型散著上傳，每次一個類型
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setMode("structured")}
+              className={cn(
+                "flex items-start gap-3 p-4 rounded-md text-left transition-all",
+                mode === "structured"
+                  ? "bg-primary/10 border border-primary/40"
+                  : "border border-transparent hover:bg-accent/40"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                  mode === "structured" ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                )}
+              >
+                <ClipboardList className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className={cn("text-sm font-medium", mode === "structured" ? "text-foreground" : "text-muted-foreground")}>
+                  檢測 / 分析數據上傳
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  依「投/打 × 檢測/訓練」一次補齊當日所需的所有檔案
+                </div>
+              </div>
+            </button>
+          </div>
+        </section>
+
+        {mode === "structured" ? (
+          <StructuredUpload />
+        ) : (
+          <>
         {/* Upload Type Selection */}
         <section className="bg-card rounded-lg border border-border p-6">
           <h3 className="text-lg font-medium text-foreground mb-4">選擇上傳類型</h3>
@@ -265,6 +335,8 @@ const Upload = () => {
             )}
           </Button>
         </div>
+          </>
+        )}
       </div>
     </AppLayout>
   );

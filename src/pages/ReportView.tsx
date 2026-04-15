@@ -1,8 +1,8 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Printer, Download, X, Plus } from "lucide-react";
+import { Printer, Download } from "lucide-react";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { useReportById } from "@/hooks/useSupabaseReports";
 import { useStudents } from "@/contexts/StudentsContext";
@@ -16,13 +16,15 @@ import PitchTypeSection, { allPitchTypes } from "@/components/reports/PitchTypeS
 import MobilitySection from "@/components/reports/MobilitySection";
 import MechanicsChecklist from "@/components/reports/MechanicsChecklist";
 import MechanicsExplanation from "@/components/reports/MechanicsExplanation";
-import VideoPlayer from "@/components/reports/VideoPlayer";
+import VideoPlayer, { type VideoClip } from "@/components/reports/VideoPlayer";
 import { battingMechanicsItems, pitchingMechanicsItems } from "@/components/reports/MechanicsChecklist";
 import ChartModuleCard from "@/components/reports/ChartModuleCard";
-import { getModuleById, battingModules, pitchingModules } from "@/data/reportModules";
+import { getModuleById } from "@/data/reportModules";
 
-/** 每頁最多放幾個圖表 */
+/** 每頁最多放幾個圖表（預設 2 張；出手點散佈圖太高，獨佔一頁） */
 const CHARTS_PER_PAGE = 2;
+/** 需獨佔一頁的圖表模組 ID */
+const SOLO_PAGE_MODULE_IDS = new Set(["pitching_4_4"]);
 
 /** 將陣列分成固定大小的 chunk */
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -33,6 +35,48 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return result;
 }
 
+/** 智慧分頁：指定 ID 的模組獨佔一頁，其餘每頁 `size` 張 */
+function smartChunkModules<T extends { id: string }>(
+  modules: T[],
+  size: number,
+  soloIds: Set<string>
+): T[][] {
+  const pages: T[][] = [];
+  let cur: T[] = [];
+  const flush = () => {
+    if (cur.length > 0) {
+      pages.push(cur);
+      cur = [];
+    }
+  };
+  for (const m of modules) {
+    if (soloIds.has(m.id)) {
+      flush();
+      pages.push([m]);
+      continue;
+    }
+    cur.push(m);
+    if (cur.length >= size) flush();
+  }
+  flush();
+  return pages;
+}
+
+/**
+ * 依據報告日期產出當日影片清單（Mock）。
+ * 實際上線後改由後端 / Supabase Storage 依 (student_id, date) 查詢。
+ */
+function getClipsByDate(date: string, type: "batting" | "pitching"): VideoClip[] {
+  if (!date) return [];
+  const label = type === "batting" ? "打擊" : "投球";
+  return [
+    { label: `${label} · 正面視角（${date}）`, src: "" },
+    { label: `${label} · 側面視角（${date}）`, src: "" },
+    { label: `${label} · 慢動作（${date}）`, src: "" },
+  ];
+}
+
+/** 純檢視模式：不可新增或刪除圖表模組 */
 const ReportView = () => {
   const { reportId } = useParams<{ reportId: string }>();
   const navigate = useNavigate();
@@ -70,8 +114,8 @@ const ReportView = () => {
     };
   }, [report, students, teams]);
 
-  // Parse chart module config → initial module list
-  const initialChartModules = useMemo(() => {
+  // Parse chart module config → module list (純檢視：不可變動)
+  const chartModules = useMemo(() => {
     if (!report?.module_config) return [];
     const config = report.module_config as {
       modules?: Array<{ module_id: string; order: number }>;
@@ -82,35 +126,13 @@ const ReportView = () => {
       .filter((m): m is NonNullable<ReturnType<typeof getModuleById>> => m != null);
   }, [report]);
 
-  /** 可變的圖表清單 — 使用者在檢視報告時可即時新增/刪除 */
-  const [chartModules, setChartModules] = useState<typeof initialChartModules>([]);
-  const [showAddPicker, setShowAddPicker] = useState(false);
-
-  // 當 initialChartModules 變更時同步
-  useEffect(() => {
-    setChartModules(initialChartModules);
-  }, [initialChartModules]);
-
-  const removeChart = (id: string) => {
-    setChartModules((prev) => prev.filter((m) => m.id !== id));
-  };
-
-  const addChart = (id: string) => {
-    const mod = getModuleById(id);
-    if (mod && !chartModules.some((m) => m.id === id)) {
-      setChartModules((prev) => [...prev, mod]);
-    }
-    setShowAddPicker(false);
-  };
-
-  /** 從 chart_data 讀取報告設定（比較次數、層級、測驗方式、無數據區塊） */
+  /** 從 chart_data 讀取報告設定 */
   const reportConfig = useMemo(() => {
     const data = (report?.chart_data || {}) as {
       compare_count?: number;
       level_baseline?: string;
       test_method?: string;
       previous_dates?: string[];
-      /** 無資料需要跳過的頁面 key 列表（如 ["fitness", "swing"]） */
       missing_sections?: string[];
     };
     return {
@@ -122,21 +144,16 @@ const ReportView = () => {
     };
   }, [report]);
 
-  /** 判斷某區塊是否有數據（後端填入後此函式回傳 false 則跳過該頁） */
   const hasSection = (key: string) => !reportConfig.missingSections.has(key);
-
-  /** 決定投球報告是否要顯示「每球種獨立分頁」(僅當 compareCount >= 1) */
   const showPitchPerTypePages = reportConfig.compareCount >= 1;
+  const chartPages = useMemo(
+    () => smartChunkModules(chartModules, CHARTS_PER_PAGE, SOLO_PAGE_MODULE_IDS),
+    [chartModules]
+  );
 
-  // Split charts into pages of CHARTS_PER_PAGE
-  const chartPages = useMemo(() => chunk(chartModules, CHARTS_PER_PAGE), [chartModules]);
-
-  // Determine report type
   const reportType = report?.type === "投球" ? "投球" : "打擊";
   const isBatting = report?.type === "打擊";
   const isPitching = report?.type === "投球";
-
-  // Mechanics items for explanation
   const mechanicsItems = isBatting ? battingMechanicsItems : pitchingMechanicsItems;
 
   const handlePrint = () => window.print();
@@ -164,13 +181,13 @@ const ReportView = () => {
     );
   }
 
-  // ── Build ordered pages array so we can calculate total page count ──
-  type PageContent = { key: string; render: () => React.ReactNode };
-  const pages: PageContent[] = [];
+  // 當日影片（依 report.date 載入）
+  const videoClips = getClipsByDate(report.date, isBatting ? "batting" : "pitching");
 
+  type PageContent = { key: string; render: () => React.ReactNode; printHidden?: boolean };
+  const pages: PageContent[] = [];
   const { compareCount, levelBaseline, testMethod } = reportConfig;
 
-  // P: 選手個資 + 身體素質（若無身體素質數據則跳過）
   if (hasSection("fitness")) {
     pages.push({
       key: "player-fitness",
@@ -183,7 +200,6 @@ const ReportView = () => {
     });
   }
 
-  // 投球限定：活動度 + 危險因子
   if (isPitching && hasSection("mobility")) {
     pages.push({
       key: "mobility",
@@ -196,7 +212,6 @@ const ReportView = () => {
     });
   }
 
-  // 打擊：揮棒數據
   if (isBatting && hasSection("swing")) {
     pages.push({
       key: "swing",
@@ -206,7 +221,6 @@ const ReportView = () => {
     });
   }
 
-  // 打擊：擊球數據
   if (isBatting && hasSection("hitting")) {
     pages.push({
       key: "hitting",
@@ -216,12 +230,10 @@ const ReportView = () => {
     });
   }
 
-  // 投球：球種數據（單次檢測 — 全部球種同頁，沒有前次比較時顯示此頁）
   if (isPitching && compareCount === 0 && hasSection("pitch")) {
     pages.push({ key: "pitch-single", render: () => <PitchTypeSection previousCount={0} /> });
   }
 
-  // 投球：球種數據（多次比較 — 每球種獨立一頁，僅 compareCount >= 1 時顯示）
   if (isPitching && showPitchPerTypePages && hasSection("pitch")) {
     allPitchTypes.forEach((pt) => {
       pages.push({
@@ -233,133 +245,60 @@ const ReportView = () => {
     });
   }
 
-  // 動作機制查核（若無機制數據則跳過）
   if (hasSection("mechanics")) {
     pages.push({
       key: "mechanics",
       render: () => (
-        <>
-          <MechanicsChecklist type={isBatting ? "batting" : "pitching"} />
-          <VideoPlayer type={isBatting ? "batting" : "pitching"} />
-        </>
+        <MechanicsChecklist type={isBatting ? "batting" : "pitching"} />
       ),
     });
 
-    // 機制說明
-    // 根據會議決議：僅顯示被標示為問題的機制說明；個人化建議來自語音轉文字或教練手動輸入，
-    // 若無上傳錄音也無手動輸入，則不顯示個人化建議區塊（傳 undefined 即不顯示）
+    // 影片獨立一頁，且列印 / PDF 輸出時不顯示
+    pages.push({
+      key: "mechanics-video",
+      printHidden: true,
+      render: () => (
+        <div className="space-y-4">
+          <h3 className="text-base font-semibold text-foreground">檢測影片</h3>
+          <VideoPlayer
+            type={isBatting ? "batting" : "pitching"}
+            clips={videoClips}
+            date={report.date}
+          />
+        </div>
+      ),
+    });
+
     pages.push({
       key: "mechanics-explain",
       render: () => (
         <MechanicsExplanation
           items={mechanicsItems}
           personalAdvice={report.markdown_notes || undefined}
+          readOnly
         />
       ),
     });
   }
 
-  // 可新增的圖表清單（排除已加入的）
-  const availableToAdd = (isBatting ? battingModules : pitchingModules).filter(
-    (m) => !chartModules.some((cm) => cm.id === m.id)
-  );
-
-  // 圖表頁面（每頁最多 CHARTS_PER_PAGE 張圖表）
+  // 圖表頁面（純檢視）
   chartPages.forEach((pageModules, idx) => {
-    const isLastChartPage = idx === chartPages.length - 1;
     pages.push({
       key: `charts-${idx}`,
       render: () => (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold text-foreground">
-              圖表分析{chartPages.length > 1 ? ` (${idx + 1}/${chartPages.length})` : ""}
-            </h3>
-            {isLastChartPage && availableToAdd.length > 0 && (
-              <div className="relative print:hidden">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAddPicker((v) => !v)}
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  新增圖表
-                </Button>
-                {showAddPicker && (
-                  <div className="absolute right-0 top-full mt-1 z-10 w-72 rounded-lg border border-border bg-card shadow-lg p-2 space-y-1 max-h-80 overflow-y-auto">
-                    {availableToAdd.map((mod) => (
-                      <button
-                        key={mod.id}
-                        className="w-full text-left p-2 rounded hover:bg-muted/50 text-sm"
-                        onClick={() => addChart(mod.id)}
-                      >
-                        <div className="font-medium">{mod.name}</div>
-                        <div className="text-[10px] text-muted-foreground">{mod.description}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <h3 className="text-base font-semibold text-foreground">
+            圖表分析{chartPages.length > 1 ? ` (${idx + 1}/${chartPages.length})` : ""}
+          </h3>
           <div className="grid grid-cols-1 gap-6">
             {pageModules.map((mod) => (
-              <div key={mod.id} className="relative group">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background border border-border shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 print:hidden"
-                  onClick={() => removeChart(mod.id)}
-                >
-                  <X className="w-3 h-3" />
-                </Button>
-                <ChartModuleCard module={mod} />
-              </div>
+              <ChartModuleCard key={mod.id} module={mod} />
             ))}
           </div>
         </div>
       ),
     });
   });
-
-  // 若所有圖表被刪除且有可新增選項，顯示空白新增頁
-  if (chartModules.length === 0 && availableToAdd.length > 0) {
-    pages.push({
-      key: "charts-empty",
-      render: () => (
-        <div className="space-y-6">
-          <h3 className="text-base font-semibold text-foreground">圖表分析</h3>
-          <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-border/50 rounded-lg print:hidden">
-            <p className="text-sm text-muted-foreground mb-4">尚未加入任何圖表</p>
-            <div className="relative">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAddPicker((v) => !v)}
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" />
-                新增圖表
-              </Button>
-              {showAddPicker && (
-                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-10 w-72 rounded-lg border border-border bg-card shadow-lg p-2 space-y-1 max-h-80 overflow-y-auto">
-                  {availableToAdd.map((mod) => (
-                    <button
-                      key={mod.id}
-                      className="w-full text-left p-2 rounded hover:bg-muted/50 text-sm"
-                      onClick={() => addChart(mod.id)}
-                    >
-                      <div className="font-medium">{mod.name}</div>
-                      <div className="text-[10px] text-muted-foreground">{mod.description}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ),
-    });
-  }
 
   const totalPages = pages.length;
 
@@ -380,7 +319,6 @@ const ReportView = () => {
       }
     >
       <div className="pb-12 print:pb-0">
-        {/* 麵包屑 */}
         <div className="mb-6 print:hidden">
           <PageBreadcrumb
             items={[
@@ -390,7 +328,12 @@ const ReportView = () => {
           />
         </div>
         {pages.map((page, idx) => (
-          <A4PageContainer key={page.key} pageNumber={idx + 1} totalPages={totalPages}>
+          <A4PageContainer
+            key={page.key}
+            pageNumber={idx + 1}
+            totalPages={totalPages}
+            className={page.printHidden ? "print:hidden" : undefined}
+          >
             {page.render()}
           </A4PageContainer>
         ))}

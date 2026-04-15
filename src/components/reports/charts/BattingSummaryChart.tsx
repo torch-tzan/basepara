@@ -15,7 +15,6 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { Badge } from "@/components/ui/badge";
 
 /** A single point on the distribution curve */
 interface DistributionPoint {
@@ -53,21 +52,19 @@ const mockDistribution = generateBellCurve(PERSONAL_AVG, STD_DEV, 80, 145, 60);
 
 const referenceLines = [
   { value: PERSONAL_AVG, label: "個人平均", color: "#60a5fa" },
-  { value: COLLEGE_AVG, label: "College", color: "#facc15" },
-  { value: AFFILIATE_AVG, label: "Affiliate", color: "#f87171" },
+  { value: COLLEGE_AVG, label: "大學", color: "#facc15" },
+  { value: AFFILIATE_AVG, label: "職業", color: "#f87171" },
 ];
 
 const BattingSummaryChart = () => {
   return (
     <div className="space-y-3">
-      <Badge variant="secondary" className="text-[10px]">模擬數據</Badge>
-
       {/* Chart */}
-      <div className="h-64 w-full">
+      <div className="h-48 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={mockDistribution}
-            margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+            margin={{ top: 16, right: 24, left: 16, bottom: 32 }}
           >
             <defs>
               <linearGradient id="swingSpeedGradient" x1="0" y1="0" x2="0" y2="1">
@@ -81,8 +78,8 @@ const BattingSummaryChart = () => {
               tick={{ fontSize: 11, fill: "#94a3b8" }}
               label={{
                 value: "揮棒速度 (km/h)",
-                position: "insideBottomRight",
-                offset: -5,
+                position: "insideBottom",
+                offset: -12,
                 fontSize: 11,
                 fill: "#94a3b8",
               }}

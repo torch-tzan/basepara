@@ -187,7 +187,7 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
       <div
         ref={sidebarRef}
         style={{ width: collapsed ? COLLAPSED_WIDTH : sidebarWidth }}
-        className={`
+        className={`print:hidden
           bg-card border-r border-border flex flex-col h-screen transition-[width] duration-300 shrink-0
           /* Desktop: normal flow */
           lg:relative lg:z-50 lg:sticky lg:top-0

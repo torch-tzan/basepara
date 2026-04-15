@@ -256,62 +256,95 @@ All colors MUST be HSL.
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-/* Print styles for report export */
+/* ══════════════════════════════════════════════
+   Print / PDF styles — 產出與畫面預覽「一模一樣」的 A4
+   ══════════════════════════════════════════════ */
 @media print {
-  /* Hide navigation, sidebar, header actions */
-  nav,
-  aside,
-  [data-sidebar],
-  .print\:hidden,
-  button,
-  [role="navigation"] {
+  /* 1. 全域：保留顏色，不要被瀏覽器改成黑白 */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* 2. 僅隱藏明確標記 print:hidden 的元素，其他一律保留 */
+  .print\:hidden {
     display: none !important;
   }
 
-  /* Reset page layout */
+  /* 3. 隱藏 App 框架（側邊欄、頂部 Nav、麵包屑等），僅保留報告主體 */
+  [data-sidebar],
+  nav[role="navigation"],
+  aside {
+    display: none !important;
+  }
+
+  /* 4. 清除 body / html 的背景色，讓報告頁自己的樣式生效 */
+  html,
   body {
     background: white !important;
-    color: black !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
-  /* Remove shadows and borders for clean print */
-  .bg-card,
-  [class*="rounded-lg"] {
-    box-shadow: none !important;
-    border: 1px solid #e5e7eb !important;
-  }
-
-  /* Full width content */
+  /* 5. 主要內容容器不要有多餘 padding / margin */
   main,
-  [role="main"] {
+  [role="main"],
+  .print-reset-layout {
     margin: 0 !important;
     padding: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
+    background: transparent !important;
   }
 
-  /* Ensure charts render with colors */
-  svg {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  /* Page break control */
-  .break-inside-avoid {
+  /* 6. A4 頁面：完整鋪滿單頁，禁止跨頁切割 */
+  .a4-page {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 15mm !important;
+    padding-top: 25mm !important;         /* 預留藍色 header 色帶高度 */
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+    page-break-after: always;
+    break-after: page;
+    page-break-inside: avoid;
     break-inside: avoid;
+    position: relative;
+    overflow: hidden;
+  }
+  .a4-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
   }
 
-  /* Ensure report cards don't break mid-content */
-  [class*="CardContent"],
-  [class*="card"] {
-    break-inside: avoid;
+  /* 7. A4 藍色 header 色帶（列印時延伸至紙張邊緣） */
+  .a4-header-band {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 15mm !important;
+    width: 100% !important;
+    border-radius: 0 !important;
   }
 
-  /* Page margins */
+  /* 8. SVG / 圖表保留全彩 */
+  svg,
+  canvas,
+  img {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    max-width: 100%;
+  }
+
+  /* 9. 紙張尺寸：A4、零邊距（由 .a4-page 自己控制內邊距） */
   @page {
-    margin: 1.5cm;
     size: A4;
+    margin: 0;
   }
 }

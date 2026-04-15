@@ -1,5 +1,3 @@
-import { Badge } from "@/components/ui/badge";
-
 export interface PlayerInfo {
   name: string;
   team: string;
@@ -19,47 +17,63 @@ interface PlayerInfoHeaderProps {
 }
 
 const PlayerInfoHeader = ({ player, reportType }: PlayerInfoHeaderProps) => {
-  const infoPairs: { label: string; value: string | number | undefined }[] = [
+  /** 第一排（5 欄）：測驗日期 / 姓名 / 年齡 / 身高 / 體重 */
+  const rowOne: { label: string; value: string | number | undefined }[] = [
+    { label: "測驗日期", value: player.testDate },
     { label: "姓名", value: player.name },
-    { label: "所屬球隊", value: player.team },
+    { label: "年齡", value: player.age },
     { label: "身高", value: player.height ? `${player.height} cm` : undefined },
     { label: "體重", value: player.weight ? `${player.weight} kg` : undefined },
+  ];
+  /** 第二排（4 欄）：所屬球隊 / 層級 / 投 / 打 */
+  const rowTwo: { label: string; value: string | number | undefined }[] = [
+    { label: "所屬球隊", value: player.team },
+    { label: "層級", value: player.level },
     { label: "投", value: player.throwsRL },
     { label: "打", value: player.batsRL },
-    { label: "測驗日期", value: player.testDate },
-    { label: "年齡", value: player.age },
-    { label: "層級", value: player.level },
   ];
+
+  /** 主標題：日期 + 姓名 + 類型（例：2025-01-17 李明軒 打擊檢測報告） */
+  const normalizedDate = (player.testDate || "").replace(/\//g, "-");
+  const mainTitle = [normalizedDate, player.name, `${reportType}檢測報告`]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="mb-6">
-      {/* 報告類型標籤 */}
-      <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-xl font-bold text-foreground">選手個資</h2>
-        <Badge
-          variant="outline"
-          className={
-            reportType === "打擊"
-              ? "border-green-500/50 text-green-600 dark:text-green-400"
-              : "border-blue-500/50 text-blue-600 dark:text-blue-400"
-          }
-        >
-          {reportType}檢測報告
-        </Badge>
+      {/* 主標題 */}
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-foreground tracking-tight">{mainTitle}</h2>
       </div>
 
       {/* 個資格 */}
-      <div className="grid grid-cols-3 md:grid-cols-5 gap-x-6 gap-y-2 bg-muted/30 rounded-lg p-4 border border-border/50">
-        {infoPairs
-          .filter((p) => p.value != null && p.value !== "")
-          .map((p) => (
+      <div className="bg-muted/30 rounded-lg p-4 border border-border/50 space-y-3">
+        {/* 第一排 5 欄：測驗日期 / 姓名 / 年齡 / 身高 / 體重 */}
+        <div className="grid grid-cols-3 md:grid-cols-5 gap-x-6 gap-y-2">
+          {rowOne.map((p) => (
             <div key={p.label} className="flex flex-col">
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
                 {p.label}
               </span>
-              <span className="text-sm font-medium text-foreground">{p.value}</span>
+              <span className="text-sm font-medium text-foreground">
+                {p.value != null && p.value !== "" ? p.value : "—"}
+              </span>
             </div>
           ))}
+        </div>
+        {/* 第二排 4 欄：所屬球隊 / 層級 / 投 / 打 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2">
+          {rowTwo.map((p) => (
+            <div key={p.label} className="flex flex-col">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                {p.label}
+              </span>
+              <span className="text-sm font-medium text-foreground">
+                {p.value != null && p.value !== "" ? p.value : "—"}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

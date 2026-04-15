@@ -10,6 +10,10 @@ interface MechanicsExplanationProps {
   items: MechanicsItem[];
   /** 個人化建議（語音轉文字或教練手動輸入） */
   personalAdvice?: string;
+  /** 純檢視模式：隱藏罐頭切換按鈕與編輯 icon */
+  readOnly?: boolean;
+  /** 教練回覆的變更 callback；有提供且非 readOnly 時會顯示為可點擊編輯的 Textarea */
+  onPersonalAdviceChange?: (value: string) => void;
 }
 
 /**
@@ -75,8 +79,15 @@ interface ExplanationState {
   draft: string;
 }
 
-const MechanicsExplanation = ({ items, personalAdvice }: MechanicsExplanationProps) => {
+const MechanicsExplanation = ({
+  items,
+  personalAdvice,
+  readOnly = false,
+  onPersonalAdviceChange,
+}: MechanicsExplanationProps) => {
   const needsExplanation = items.filter((item) => !item.isGood);
+  const isAdviceEditable = !readOnly && !!onPersonalAdviceChange;
+  const [isEditingAdvice, setIsEditingAdvice] = useState(false);
 
   // 為每個需要說明的機制維護狀態
   const [states, setStates] = useState<Record<string, ExplanationState>>({});
@@ -177,7 +188,7 @@ const MechanicsExplanation = ({ items, personalAdvice }: MechanicsExplanationPro
                   <span className="text-[10px] text-muted-foreground italic mr-1">已編輯</span>
                 )}
                 {/* 罐頭切換 */}
-                {hasMultipleCanned && !state?.isEditing && (
+                {!readOnly && hasMultipleCanned && !state?.isEditing && (
                   <div className="flex items-center gap-0.5">
                     {cannedOptions.map((_, idx) => (
                       <Button
@@ -193,7 +204,7 @@ const MechanicsExplanation = ({ items, personalAdvice }: MechanicsExplanationPro
                   </div>
                 )}
                 {/* 編輯/儲存/取消 */}
-                {!state?.isEditing ? (
+                {!readOnly && (!state?.isEditing ? (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -221,7 +232,7 @@ const MechanicsExplanation = ({ items, personalAdvice }: MechanicsExplanationPro
                       <X className="w-3.5 h-3.5" />
                     </Button>
                   </>
-                )}
+                ))}
               </div>
             </div>
 
@@ -241,14 +252,40 @@ const MechanicsExplanation = ({ items, personalAdvice }: MechanicsExplanationPro
         );
       })}
 
-      {personalAdvice && (
-        <div className="bg-blue-500/5 rounded-lg p-4 border border-blue-500/20">
+      {(personalAdvice || isAdviceEditable) && (
+        <div
+          className={cn(
+            "bg-blue-500/5 rounded-lg p-4 border border-blue-500/20",
+            isAdviceEditable && !isEditingAdvice && "cursor-text hover:border-blue-500/40 transition-colors"
+          )}
+          onClick={() => {
+            if (isAdviceEditable && !isEditingAdvice) setIsEditingAdvice(true);
+          }}
+        >
           <h4 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">
-            個人化建議
+            教練回覆
           </h4>
-          <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
-            {personalAdvice}
-          </p>
+          {isAdviceEditable && isEditingAdvice ? (
+            <Textarea
+              value={personalAdvice || ""}
+              onChange={(e) => onPersonalAdviceChange!(e.target.value)}
+              onBlur={() => setIsEditingAdvice(false)}
+              placeholder="在此輸入教練回覆，儲存時寫入報告..."
+              className="min-h-[100px] text-sm bg-background resize-none"
+              autoFocus
+            />
+          ) : personalAdvice ? (
+            <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+              {personalAdvice}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">點擊輸入教練回覆…</p>
+          )}
+          {isAdviceEditable && (
+            <p className="mt-1.5 text-[10px] text-muted-foreground print:hidden">
+              空白時 PDF 輸出不顯示此區塊
+            </p>
+          )}
         </div>
       )}
     </div>

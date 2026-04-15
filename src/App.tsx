@@ -17,6 +17,8 @@ import Schedule from "./pages/Schedule";
 import Reports from "./pages/Reports";
 import ReportView from "./pages/ReportView";
 import ReportNew from "./pages/ReportNew";
+import ReportNewPreview from "./pages/ReportNewPreview";
+import ReportBatch from "./pages/ReportBatch";
 import ChartOverview from "./pages/ChartOverview";
 import Templates from "./pages/Templates";
 import TemplateCategories from "./pages/TemplateCategories";
@@ -89,6 +91,8 @@ const App = () => {
                         <Route path="/training-records" element={<ProtectedRoute><TrainingRecords /></ProtectedRoute>} />
                         <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
                         <Route path="/reports/new" element={<ProtectedRoute><ReportNew /></ProtectedRoute>} />
+                        <Route path="/reports/new/preview" element={<ProtectedRoute><ReportNewPreview /></ProtectedRoute>} />
+                        <Route path="/reports/batch" element={<ProtectedRoute><ReportBatch /></ProtectedRoute>} />
                         <Route path="/reports/:reportId" element={<ProtectedRoute><ReportView /></ProtectedRoute>} />
                         <Route path="/chart-overview" element={<ProtectedRoute><ChartOverview /></ProtectedRoute>} />
                         <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />

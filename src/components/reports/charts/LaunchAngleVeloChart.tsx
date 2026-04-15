@@ -19,9 +19,9 @@ import {
   ZAxis,
   Cell,
 } from "recharts";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BarChart3, ScatterChart as ScatterIcon } from "lucide-react";
+import { ChartControls } from "../chartControlsContext";
 
 // --- Types ---
 interface GroupData {
@@ -78,8 +78,7 @@ const LaunchAngleVeloChart = () => {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <Badge variant="secondary" className="text-[10px]">模擬數據</Badge>
+      <ChartControls>
         <div className="flex gap-1">
           <Button variant={mode === "bar" ? "default" : "ghost"} size="sm" className="h-7 px-2" onClick={() => setMode("bar")}>
             <BarChart3 className="w-3 h-3 mr-1" />長條
@@ -88,15 +87,15 @@ const LaunchAngleVeloChart = () => {
             <ScatterIcon className="w-3 h-3 mr-1" />散佈
           </Button>
         </div>
-      </div>
+      </ChartControls>
 
       {/* Chart */}
-      <div className="h-64 w-full">
+      <div className="h-48 w-full">
         <ResponsiveContainer width="100%" height="100%">
           {mode === "bar" ? (
             <ComposedChart
               data={mockGroupData}
-              margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+              margin={{ top: 16, right: 40, left: 16, bottom: 32 }}
             >
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} />
               <XAxis
@@ -104,13 +103,15 @@ const LaunchAngleVeloChart = () => {
                 tick={{ fontSize: 11, fill: "#94a3b8" }}
                 label={{
                   value: "Launch Angle",
-                  position: "insideBottomRight",
-                  offset: -5,
+                  position: "insideBottom",
+                  offset: -12,
                   fontSize: 11,
                   fill: "#94a3b8",
                 }}
               />
+              {/* 左軸：初速 */}
               <YAxis
+                yAxisId="velo"
                 tick={{ fontSize: 11, fill: "#94a3b8" }}
                 domain={[60, 110]}
                 label={{
@@ -122,15 +123,44 @@ const LaunchAngleVeloChart = () => {
                   fill: "#94a3b8",
                 }}
               />
+              {/* 右軸：球數 */}
+              <YAxis
+                yAxisId="count"
+                orientation="right"
+                tick={{ fontSize: 11, fill: "#94a3b8" }}
+                allowDecimals={false}
+                label={{
+                  value: "球數",
+                  angle: 90,
+                  position: "insideRight",
+                  offset: 10,
+                  fontSize: 11,
+                  fill: "#94a3b8",
+                }}
+              />
               <Tooltip />
+              {/* 長條：球數（右軸） */}
               <Bar
-                dataKey="avg"
-                name="平均初速"
-                fill="#60a5fa"
-                fillOpacity={0.6}
+                yAxisId="count"
+                dataKey="count"
+                name="球數"
+                fill="#cbd5e1"
+                fillOpacity={0.7}
                 radius={[4, 4, 0, 0]}
               />
+              {/* 折線：平均初速（左軸） */}
               <Line
+                yAxisId="velo"
+                type="monotone"
+                dataKey="avg"
+                name="平均初速"
+                stroke="#60a5fa"
+                strokeWidth={2}
+                dot={{ r: 3, fill: "#60a5fa" }}
+              />
+              {/* 折線：最大初速（左軸） */}
+              <Line
+                yAxisId="velo"
                 type="monotone"
                 dataKey="max"
                 name="最大初速"
@@ -140,7 +170,7 @@ const LaunchAngleVeloChart = () => {
               />
             </ComposedChart>
           ) : (
-            <ScatterChart margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <ScatterChart margin={{ top: 16, right: 40, left: 16, bottom: 32 }}>
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} />
               <XAxis
                 type="number"
@@ -150,8 +180,8 @@ const LaunchAngleVeloChart = () => {
                 domain={[-30, 30]}
                 label={{
                   value: "Launch Angle (°)",
-                  position: "insideBottomRight",
-                  offset: -5,
+                  position: "insideBottom",
+                  offset: -12,
                   fontSize: 11,
                   fill: "#94a3b8",
                 }}
@@ -201,12 +231,16 @@ const LaunchAngleVeloChart = () => {
       {mode === "bar" && (
         <div className="flex flex-wrap gap-4 justify-center text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm bg-blue-400/60" />
+            <span className="inline-block w-3 h-0.5 bg-blue-400" />
             <span>平均初速 (Avg)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 bg-red-400" />
             <span>最大初速 (Max)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm bg-slate-300" />
+            <span>球數</span>
           </div>
         </div>
       )}

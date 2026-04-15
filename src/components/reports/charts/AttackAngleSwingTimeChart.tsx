@@ -1,5 +1,4 @@
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Badge } from "@/components/ui/badge";
 
 const mockData = Array.from({ length: 40 }, (_, i) => ({
   swingTime: +(0.12 + Math.random() * 0.16).toFixed(3),
@@ -9,15 +8,14 @@ const mockData = Array.from({ length: 40 }, (_, i) => ({
 const AttackAngleSwingTimeChart = () => {
   return (
     <div className="space-y-3">
-      <Badge variant="secondary" className="text-[10px]">模擬數據</Badge>
-      <div className="h-64">
+      <div className="h-48">
         <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart>
+          <ScatterChart margin={{ top: 16, right: 24, left: 16, bottom: 32 }}>
             <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
             <XAxis
               dataKey="swingTime" type="number" domain={[0.1, 0.3]}
               name="揮擊時間" tick={{ fontSize: 10 }}
-              label={{ value: "揮擊時間 (s)", position: "bottom", style: { fontSize: 10 } }}
+              label={{ value: "揮擊時間 (s)", position: "insideBottom", offset: -12, style: { fontSize: 10 } }}
             />
             <YAxis
               dataKey="attackAngle" type="number" domain={[-20, 30]}

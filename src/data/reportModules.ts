@@ -9,6 +9,8 @@ export interface ReportModule {
   specRef: string; // 對應規格章節
   status: "ready" | "pending_data" | "placeholder"; // 開發狀態
   pendingNote?: string; // 待確認事項
+  /** 設為 true 時，卡片不渲染共用的情境/球種篩選（由圖表自行管理球種選擇） */
+  hideModuleFilter?: boolean;
 }
 
 // 打擊報告可選模組（規格第三節 3.0~3.7）
@@ -94,6 +96,7 @@ export const pitchingModules: ReportModule[] = [
     specRef: "4.1",
     status: "pending_data",
     pendingNote: "待偉丞確認層級曲線數據邏輯",
+    hideModuleFilter: true,
   },
   {
     id: "pitching_4_2",
@@ -103,6 +106,7 @@ export const pitchingModules: ReportModule[] = [
     specRef: "4.2",
     status: "pending_data",
     pendingNote: "待偉丞確認誤差範圍公式",
+    hideModuleFilter: true,
   },
   {
     id: "pitching_4_3",
@@ -111,6 +115,7 @@ export const pitchingModules: ReportModule[] = [
     category: "pitching",
     specRef: "4.3",
     status: "placeholder",
+    hideModuleFilter: true,
   },
   {
     id: "pitching_4_4",
@@ -120,30 +125,12 @@ export const pitchingModules: ReportModule[] = [
     specRef: "4.4",
     status: "pending_data",
     pendingNote: "待偉丞確認誤差範圍公式",
+    hideModuleFilter: true,
   },
 ];
 
-// 非投打報告模組（待偉丞提供範本後定義）
-export const nonPitchingModules: ReportModule[] = [
-  {
-    id: "non_pitching_fitness",
-    name: "體能活動度",
-    description: "體能與活動度檢測數據（待定義）",
-    category: "non_pitching",
-    specRef: "七",
-    status: "pending_data",
-    pendingNote: "待偉丞提供 Word 報告範本",
-  },
-  {
-    id: "non_pitching_mechanism",
-    name: "機制檢核",
-    description: "打擊 / 投球機制檢核項目（待定義）",
-    category: "non_pitching",
-    specRef: "十",
-    status: "pending_data",
-    pendingNote: "待偉丞提供範本",
-  },
-];
+// 非投打報告模組（體測/機制不以圖表呈現，保留空陣列）
+export const nonPitchingModules: ReportModule[] = [];
 
 // 根據報告類型取得可用模組
 export const getModulesByReportType = (

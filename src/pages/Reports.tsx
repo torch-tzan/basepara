@@ -26,7 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { X, Download, Circle, CalendarIcon, Plus } from "lucide-react";
+import { X, Download, Circle, CalendarIcon, Plus, Layers } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDataAccess, useFilteredStudentsByTeam } from "@/hooks/useDataAccess";
@@ -216,12 +216,20 @@ const Reports = () => {
     <AppLayout
       title="檢測報告"
       headerAction={
-        <Button asChild>
-          <Link to="/reports/new">
-            <Plus className="w-4 h-4 mr-2" />
-            新增報告
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link to="/reports/batch">
+              <Layers className="w-4 h-4 mr-2" />
+              批次產出
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link to="/reports/new">
+              <Plus className="w-4 h-4 mr-2" />
+              新增報告
+            </Link>
+          </Button>
+        </div>
       }
     >
       <div className="space-y-4 md:space-y-6">

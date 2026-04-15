@@ -1,195 +1,177 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+/**
+ * 進壘點圖（熱區圖）
+ * 我們只紀錄「進壘號碼」而非真實座標，故僅能用熱區圖呈現。
+ * 版面：MLB Statcast 13-zone（z1~z9 好球帶 + z11~z14 四個壞球象限）
+ * - 色彩：該區的球數（越多越紅）
+ * - 預設：單一球種（FB），可透過按鈕加選或切換
+ */
 
-const pitchTypeConfig = [
-  { type: "FB", label: "FB", color: "#ef4444" },
-  { type: "CB", label: "CB", color: "#3b82f6" },
-  { type: "SL", label: "SL", color: "#22c55e" },
-  { type: "CH", label: "CH", color: "#f59e0b" },
-];
+import { useMemo, useState } from "react";
+import PitchTypeToggleRow, { PITCH_TYPE_OPTIONS, togglePitchType } from "./PitchTypeToggleRow";
+import { ChartFilters } from "../chartControlsContext";
 
-// Generate mock pitch locations across a 5x5 grid (strike zone 3x3 + outer zones)
-const generateHeatmapData = (types: string[]) => {
-  // 5x5 grid: row 0 = top outer, rows 1-3 = strike zone, row 4 = bottom outer
-  // col 0 = left outer, cols 1-3 = strike zone, col 4 = right outer
-  const grid: number[][] = Array.from({ length: 5 }, () => Array(5).fill(0));
+const pitchTypeConfig = PITCH_TYPE_OPTIONS;
 
-  // All pitches with locations
-  const allPitches = [
-    ...Array.from({ length: 40 }, () => ({ type: "FB", x: (Math.random() - 0.5) * 2.4, y: 1.0 + Math.random() * 3.0 })),
-    ...Array.from({ length: 25 }, () => ({ type: "CB", x: (Math.random() - 0.5) * 2.4, y: 0.8 + Math.random() * 2.5 })),
-    ...Array.from({ length: 20 }, () => ({ type: "SL", x: -0.2 + (Math.random() - 0.5) * 2.2, y: 1.2 + Math.random() * 2.5 })),
-    ...Array.from({ length: 15 }, () => ({ type: "CH", x: (Math.random() - 0.5) * 2.0, y: 1.0 + Math.random() * 2.2 })),
-  ];
+type ZoneId = "z1" | "z2" | "z3" | "z4" | "z5" | "z6" | "z7" | "z8" | "z9" | "z11" | "z12" | "z13" | "z14";
+const ALL_ZONES: ZoneId[] = ["z1","z2","z3","z4","z5","z6","z7","z8","z9","z11","z12","z13","z14"];
 
-  const filtered = allPitches.filter((p) => types.includes(p.type));
-
-  // Map each pitch to a grid cell
-  // Strike zone: x from -0.71 to 0.71, y from 1.5 to 3.5
-  filtered.forEach((p) => {
-    let col: number;
-    if (p.x < -0.71) col = 0;
-    else if (p.x < -0.237) col = 1;
-    else if (p.x < 0.237) col = 2;
-    else if (p.x < 0.71) col = 3;
-    else col = 4;
-
-    let row: number;
-    if (p.y > 3.5) row = 0;
-    else if (p.y > 2.833) row = 1;
-    else if (p.y > 2.167) row = 2;
-    else if (p.y > 1.5) row = 3;
-    else row = 4;
-
-    grid[row][col]++;
-  });
-
-  return grid;
+// ── 假資料：每個球種在 13 個區域的球數 ──
+const mockCountsByPitch: Record<string, Record<ZoneId, number>> = {
+  FB: { z1: 3, z2: 12, z3: 5, z4: 8, z5: 20, z6: 10, z7: 2, z8: 6, z9: 4, z11: 8, z12: 7, z13: 3, z14: 4 },
+  CB: { z1: 1, z2: 3, z3: 2, z4: 2, z5: 5, z6: 3, z7: 6, z8: 12, z9: 8, z11: 1, z12: 2, z13: 5, z14: 6 },
+  SL: { z1: 2, z2: 4, z3: 8, z4: 3, z5: 6, z6: 14, z7: 2, z8: 3, z9: 7, z11: 1, z12: 5, z13: 2, z14: 8 },
+  CH: { z1: 2, z2: 5, z3: 3, z4: 6, z5: 10, z6: 4, z7: 8, z8: 6, z9: 3, z11: 3, z12: 2, z13: 4, z14: 3 },
 };
 
-// Color interpolation from cool (blue) to hot (red)
-const getHeatColor = (value: number, max: number): string => {
-  if (max === 0) return "rgba(100,100,100,0.15)";
-  const t = value / max;
-  // Blue → Cyan → Green → Yellow → Red
-  if (t < 0.25) {
-    const s = t / 0.25;
-    return `rgb(${Math.round(59 + s * (34 - 59))}, ${Math.round(130 + s * (211 - 130))}, ${Math.round(246 + s * (153 - 246))})`;
-  }
+// ── 色階：低 → 白、高 → 紅 ──
+function getHeatColor(count: number, min: number, max: number): string {
+  if (max === min) return "rgb(230,230,230)";
+  const t = Math.max(0, Math.min(1, (count - min) / (max - min)));
+  // 低 → 淡藍、中 → 淺灰白、高 → 紅
   if (t < 0.5) {
-    const s = (t - 0.25) / 0.25;
-    return `rgb(${Math.round(34 + s * (74 - 34))}, ${Math.round(211 + s * (222 - 211))}, ${Math.round(153 + s * (128 - 153))})`;
+    const k = t / 0.5;
+    const r = Math.round(130 + k * 110);
+    const g = Math.round(170 + k * 70);
+    const b = Math.round(230 - k * 5);
+    return `rgb(${r}, ${g}, ${b})`;
   }
-  if (t < 0.75) {
-    const s = (t - 0.5) / 0.25;
-    return `rgb(${Math.round(74 + s * (234 - 74))}, ${Math.round(222 + s * (179 - 222))}, ${Math.round(128 + s * (8 - 128))})`;
-  }
-  const s = (t - 0.75) / 0.25;
-  return `rgb(${Math.round(234 + s * (239 - 234))}, ${Math.round(179 + s * (68 - 179))}, ${Math.round(8 + s * (68 - 8))})`;
-};
+  const k = (t - 0.5) / 0.5;
+  const r = Math.round(240 + k * 0);
+  const g = Math.round(240 - k * 160);
+  const b = Math.round(225 - k * 155);
+  return `rgb(${r}, ${g}, ${b})`;
+}
 
 const PitchLocationChart = () => {
-  const [activeTypes, setActiveTypes] = useState<string[]>(["FB", "CB", "SL", "CH"]);
+  // 預設只顯示 FB
+  const [activeTypes, setActiveTypes] = useState<string[]>(["FB"]);
 
-  const toggleType = (t: string) => {
-    setActiveTypes((prev) =>
-      prev.includes(t) ? prev.filter((p) => p !== t) : [...prev, t]
-    );
-  };
+  const toggleType = (t: string) => setActiveTypes((prev) => togglePitchType(prev, t));
 
-  const grid = generateHeatmapData(activeTypes);
-  const maxVal = Math.max(...grid.flat(), 1);
+  // 合併選取球種的球數（逐區相加）
+  const zoneCounts = useMemo(() => {
+    const sum: Record<ZoneId, number> = {
+      z1: 0, z2: 0, z3: 0, z4: 0, z5: 0, z6: 0, z7: 0, z8: 0, z9: 0,
+      z11: 0, z12: 0, z13: 0, z14: 0,
+    };
+    activeTypes.forEach((pt) => {
+      const src = mockCountsByPitch[pt];
+      ALL_ZONES.forEach((z) => { sum[z] += src[z]; });
+    });
+    return sum;
+  }, [activeTypes]);
 
-  const w = 260, h = 300;
-  const zoneX = 50, zoneY = 30;
-  const cellW = 40, cellH = 40;
-  const outerW = 25, outerH = 25;
+  const values = ALL_ZONES.map((z) => zoneCounts[z]);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const total = values.reduce((s, v) => s + v, 0);
 
-  // Zone positions: 5x5 grid
-  const getCellRect = (row: number, col: number) => {
-    // Outer zones are thinner
-    let x: number, y: number, cw: number, ch: number;
-    if (col === 0) { x = zoneX - outerW; cw = outerW; }
-    else if (col <= 3) { x = zoneX + (col - 1) * cellW; cw = cellW; }
-    else { x = zoneX + 3 * cellW; cw = outerW; }
+  // ── Layout ──
+  const totalW = 300;
+  const totalH = 320;
+  const szW = 168;
+  const szH = 204;
+  const szX = (totalW - szW) / 2;
+  const szY = (totalH - szH) / 2;
+  const cellW = szW / 3;
+  const cellH = szH / 3;
+  const cx = totalW / 2;
+  const cy = totalH / 2;
 
-    if (row === 0) { y = zoneY - outerH; ch = outerH; }
-    else if (row <= 3) { y = zoneY + (row - 1) * cellH; ch = cellH; }
-    else { y = zoneY + 3 * cellH; ch = outerH; }
+  const innerZones: { id: ZoneId; row: number; col: number }[] = [
+    { id: "z1", row: 0, col: 0 }, { id: "z2", row: 0, col: 1 }, { id: "z3", row: 0, col: 2 },
+    { id: "z4", row: 1, col: 0 }, { id: "z5", row: 1, col: 1 }, { id: "z6", row: 1, col: 2 },
+    { id: "z7", row: 2, col: 0 }, { id: "z8", row: 2, col: 1 }, { id: "z9", row: 2, col: 2 },
+  ];
 
-    return { x, y, w: cw, h: ch };
-  };
+  const outerZones: { id: ZoneId; x: number; y: number; w: number; h: number; lx: number; ly: number }[] = [
+    { id: "z11", x: 0,  y: 0,  w: cx,          h: cy,           lx: szX / 2,           ly: szY / 2 },
+    { id: "z12", x: cx, y: 0,  w: totalW - cx, h: cy,           lx: totalW - szX / 2,  ly: szY / 2 },
+    { id: "z13", x: 0,  y: cy, w: cx,          h: totalH - cy,  lx: szX / 2,           ly: totalH - szY / 2 },
+    { id: "z14", x: cx, y: cy, w: totalW - cx, h: totalH - cy,  lx: totalW - szX / 2,  ly: totalH - szY / 2 },
+  ];
 
   return (
     <div className="space-y-3">
-      <Badge variant="secondary" className="text-[10px]">模擬數據</Badge>
+      {/* 球種切換按鈕 portal 至 header 左側，與右側控制項同高 */}
+      <ChartFilters>
+        <PitchTypeToggleRow active={activeTypes} onToggle={toggleType} />
+      </ChartFilters>
 
-      <div className="flex justify-center">
-        <svg viewBox={`0 0 ${w} ${h}`} className="w-full max-w-[260px] h-auto">
-          {/* Heatmap cells */}
-          {grid.map((row, ri) =>
-            row.map((val, ci) => {
-              const rect = getCellRect(ri, ci);
-              const isOuter = ri === 0 || ri === 4 || ci === 0 || ci === 4;
-              return (
-                <g key={`${ri}-${ci}`}>
-                  <rect
-                    x={rect.x} y={rect.y}
-                    width={rect.w} height={rect.h}
-                    fill={getHeatColor(val, maxVal)}
-                    opacity={isOuter ? 0.5 : 0.75}
-                    stroke="#555" strokeWidth={0.5}
-                  />
-                  {val > 0 && (
-                    <text
-                      x={rect.x + rect.w / 2}
-                      y={rect.y + rect.h / 2 + 4}
-                      textAnchor="middle"
-                      fill="white"
-                      fontSize={isOuter ? 8 : 10}
-                      fontWeight="bold"
-                    >
-                      {val}
-                    </text>
-                  )}
-                </g>
-              );
-            })
-          )}
-
-          {/* Strike zone border */}
-          <rect
-            x={zoneX} y={zoneY}
-            width={cellW * 3} height={cellH * 3}
-            fill="none" stroke="white" strokeWidth={1.5}
-          />
-
-          {/* Home plate */}
-          {(() => {
-            const px = zoneX + cellW * 1.5;
-            const py = zoneY + cellH * 3 + outerH + 15;
+      <div className="flex items-center justify-center gap-4">
+        <svg viewBox={`0 0 ${totalW} ${totalH}`} className="w-full max-w-[300px] h-auto">
+          {/* 壞球區 4 象限 */}
+          {outerZones.map((z) => {
+            const val = zoneCounts[z.id];
             return (
-              <polygon
-                points={`${px},${py + 8} ${px - 12},${py} ${px - 12},${py - 5} ${px + 12},${py - 5} ${px + 12},${py}`}
-                fill="none" stroke="#666" strokeWidth={1}
-              />
+              <g key={z.id}>
+                <rect
+                  x={z.x} y={z.y} width={z.w} height={z.h}
+                  fill={getHeatColor(val, min, max)}
+                  opacity={0.75}
+                  stroke="rgba(71,85,105,0.9)" strokeWidth={1}
+                />
+                <text
+                  x={z.lx} y={z.ly}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fontSize={14} fontWeight={600} fill="#1e293b"
+                >
+                  {val}
+                </text>
+              </g>
             );
-          })()}
+          })}
 
-          {/* Color scale legend */}
-          {Array.from({ length: 10 }, (_, i) => (
-            <rect
-              key={`legend-${i}`}
-              x={zoneX + 3 * cellW + outerW + 15}
-              y={zoneY + i * 12}
-              width={12} height={12}
-              fill={getHeatColor(10 - i, 10)}
-              stroke="#333" strokeWidth={0.3}
-            />
-          ))}
-          <text x={zoneX + 3 * cellW + outerW + 30} y={zoneY + 8} fill="#aaa" fontSize={8}>多</text>
-          <text x={zoneX + 3 * cellW + outerW + 30} y={zoneY + 116} fill="#aaa" fontSize={8}>少</text>
+          {/* 好球帶 3x3 */}
+          {innerZones.map((z) => {
+            const x = szX + z.col * cellW;
+            const y = szY + z.row * cellH;
+            const val = zoneCounts[z.id];
+            return (
+              <g key={z.id}>
+                <rect
+                  x={x} y={y} width={cellW} height={cellH}
+                  fill={getHeatColor(val, min, max)}
+                  opacity={0.95}
+                  stroke="rgba(71,85,105,0.9)" strokeWidth={1}
+                />
+                <text
+                  x={x + cellW / 2} y={y + cellH / 2}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fontSize={15} fontWeight={700} fill="#1e293b"
+                >
+                  {val}
+                </text>
+              </g>
+            );
+          })}
 
-          {/* Batter indicator */}
-          <text x={w - 20} y={zoneY + cellH * 1.5 + 4} fill="#888" fontSize={12} fontWeight="bold">R</text>
+          {/* 好球帶外框 */}
+          <rect
+            x={szX} y={szY} width={szW} height={szH}
+            fill="none" stroke="#0f172a" strokeWidth={2.4}
+          />
         </svg>
+
+        {/* 右側色階 */}
+        <div className="flex flex-col items-center text-[10px] text-muted-foreground">
+          <span className="mb-1">{max} 球</span>
+          <div
+            className="w-3 h-36 rounded-sm border border-border/60"
+            style={{
+              background: `linear-gradient(to bottom,
+                ${getHeatColor(max, min, max)},
+                ${getHeatColor((max + min) / 2, min, max)},
+                ${getHeatColor(min, min, max)})`,
+            }}
+          />
+          <span className="mt-1">{min} 球</span>
+        </div>
       </div>
 
-      {/* Pitch type toggle buttons */}
-      <div className="flex justify-center gap-2">
-        {pitchTypeConfig.map((pt) => (
-          <Button
-            key={pt.type}
-            variant={activeTypes.includes(pt.type) ? "default" : "outline"}
-            size="sm"
-            className="h-7 px-3 text-xs"
-            style={activeTypes.includes(pt.type) ? { backgroundColor: pt.color, borderColor: pt.color } : {}}
-            onClick={() => toggleType(pt.type)}
-          >
-            {pt.label}
-          </Button>
-        ))}
+      {/* 底部說明 */}
+      <div className="text-center text-[11px] text-muted-foreground">
+        顯示球種：{activeTypes.map((t) => pitchTypeConfig.find((p) => p.type === t)?.label ?? t).join(" + ")}　總球數：{total}
       </div>
     </div>
   );

@@ -4,8 +4,8 @@ import {
   ResponsiveContainer, ScatterChart, Scatter,
 } from "recharts";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { BarChart3, ScatterChart as ScatterIcon } from "lucide-react";
+import { ChartControls } from "../chartControlsContext";
 
 const mockBarData = [
   { range: "-55~-45°", avg: 78, max: 96 },
@@ -28,8 +28,7 @@ const HorizontalAngleVeloChart = () => {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <Badge variant="secondary" className="text-[10px]">模擬數據</Badge>
+      <ChartControls>
         <div className="flex gap-1">
           <Button variant={mode === "bar" ? "default" : "ghost"} size="sm" className="h-7 px-2" onClick={() => setMode("bar")}>
             <BarChart3 className="w-3 h-3 mr-1" />長條
@@ -38,13 +37,13 @@ const HorizontalAngleVeloChart = () => {
             <ScatterIcon className="w-3 h-3 mr-1" />散佈
           </Button>
         </div>
-      </div>
-      <div className="h-64">
+      </ChartControls>
+      <div className="h-48">
         {mode === "bar" ? (
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={mockBarData}>
+            <ComposedChart data={mockBarData} margin={{ top: 16, right: 24, left: 16, bottom: 36 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis dataKey="range" tick={{ fontSize: 10 }} />
+              <XAxis dataKey="range" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={40} />
               <YAxis domain={[60, 110]} tick={{ fontSize: 10 }} label={{ value: "MPH", angle: -90, position: "insideLeft", style: { fontSize: 10 } }} />
               <Tooltip />
               <Bar dataKey="avg" fill="#60a5fa" opacity={0.7} name="平均初速" />
@@ -53,7 +52,7 @@ const HorizontalAngleVeloChart = () => {
           </ResponsiveContainer>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart>
+            <ScatterChart margin={{ top: 16, right: 24, left: 16, bottom: 36 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
               <XAxis dataKey="angle" type="number" domain={[-60, 30]} name="水平角" tick={{ fontSize: 10 }} />
               <YAxis dataKey="velo" type="number" domain={[60, 110]} name="初速" tick={{ fontSize: 10 }} label={{ value: "MPH", angle: -90, position: "insideLeft", style: { fontSize: 10 } }} />

@@ -1,60 +1,123 @@
+/**
+ * 好球帶熱區圖
+ * 指標（都是數值越高越好）：
+ *  - exit_velo            擊球初速 (km/h)
+ *  - hard_hit_rate        強擊球率 (%)
+ *  - eff_la_rate          有效仰角比例 (%)
+ *  - eff_la_hard_hit_rate 有效仰角且強擊球比例 (%)
+ *
+ * 版面採 MLB Statcast 13-zone：
+ *  - 內框 3x3（strike zone）編號 z1~z9
+ *  - 外框 4 個象限（壞球區）：以 strike zone 中心為十字切分
+ *    z11 左上、z12 右上、z13 左下、z14 右下
+ */
+
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { ChartControls } from "../chartControlsContext";
 
 const metrics = [
-  { value: "exit_velo", label: "擊球初速" },
-  { value: "launch_angle", label: "擊球仰角" },
+  { value: "exit_velo", label: "擊球初速", unit: "km/h", format: (v: number) => v.toFixed(0) },
+  { value: "hard_hit_rate", label: "強擊球率", unit: "%", format: (v: number) => v.toFixed(0) },
+  { value: "eff_la_rate", label: "有效仰角比例", unit: "%", format: (v: number) => v.toFixed(0) },
+  { value: "eff_la_hard_hit_rate", label: "有效仰角且強擊球比例", unit: "%", format: (v: number) => v.toFixed(0) },
 ];
 
-// Mock data: 9 inner zones + 4 outer zones
-const mockData: Record<string, Record<string, number>> = {
+type ZoneId = "z1" | "z2" | "z3" | "z4" | "z5" | "z6" | "z7" | "z8" | "z9" | "z11" | "z12" | "z13" | "z14";
+
+// 模擬資料（所有指標數值越高越好）
+const mockData: Record<string, Record<ZoneId, number>> = {
   exit_velo: {
-    z1: 88, z2: 92, z3: 85, z4: 95, z5: 98, z6: 90, z7: 82, z8: 87, z9: 80,
-    top: 72, bottom: 68, left: 75, right: 70,
+    z1: 138, z2: 145, z3: 132,
+    z4: 150, z5: 155, z6: 142,
+    z7: 128, z8: 135, z9: 122,
+    z11: 110, z12: 105, z13: 98, z14: 102,
   },
-  launch_angle: {
-    z1: 22, z2: 15, z3: 20, z4: 12, z5: 10, z6: 14, z7: 8, z8: 5, z9: 10,
-    top: 28, bottom: -5, left: 18, right: 16,
+  hard_hit_rate: {
+    z1: 38, z2: 52, z3: 35,
+    z4: 55, z5: 68, z6: 48,
+    z7: 30, z8: 42, z9: 28,
+    z11: 18, z12: 15, z13: 10, z14: 12,
+  },
+  eff_la_rate: {
+    z1: 42, z2: 55, z3: 40,
+    z4: 60, z5: 72, z6: 52,
+    z7: 35, z8: 48, z9: 32,
+    z11: 22, z12: 20, z13: 15, z14: 18,
+  },
+  eff_la_hard_hit_rate: {
+    z1: 25, z2: 38, z3: 22,
+    z4: 42, z5: 55, z6: 35,
+    z7: 18, z8: 28, z9: 15,
+    z11: 8, z12: 6, z13: 4, z14: 5,
   },
 };
 
+/**
+ * 以固定色帶（冷藍 → 暖紅）依 t∈[0,1] 取色。
+ * 統一用「越高越紅」的方向，因為所有指標都是越高越好。
+ */
 function getColor(value: number, min: number, max: number): string {
-  const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
-  // Blue (cold) to Red (hot)
-  const r = Math.round(50 + t * 205);
-  const g = Math.round(50 + (1 - Math.abs(t - 0.5) * 2) * 100);
-  const b = Math.round(255 - t * 205);
-  return `rgb(${r}, ${g}, ${b})`;
+  const t = max === min ? 0.5 : Math.max(0, Math.min(1, (value - min) / (max - min)));
+  // 低 → 淡藍；高 → 鮮紅
+  if (t < 0.5) {
+    const k = t / 0.5; // 0~1
+    const r = Math.round(130 + k * 90);
+    const g = Math.round(170 + k * 60);
+    const b = Math.round(230 - k * 10);
+    return `rgb(${r}, ${g}, ${b})`;
+  } else {
+    const k = (t - 0.5) / 0.5; // 0~1
+    const r = Math.round(220 + k * 20);
+    const g = Math.round(230 - k * 150);
+    const b = Math.round(220 - k * 150);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
 }
 
 const StrikeZoneHeatmap = () => {
   const [metric, setMetric] = useState("exit_velo");
   const data = mockData[metric];
+  const meta = metrics.find((m) => m.value === metric)!;
   const values = Object.values(data);
   const min = Math.min(...values);
   const max = Math.max(...values);
 
-  const zoneSize = 60;
-  const padding = 40;
-  const outerSize = 30;
-  const totalW = zoneSize * 3 + outerSize * 2 + padding * 2;
-  const totalH = zoneSize * 3 + outerSize * 2 + padding * 2;
-  const ox = padding + outerSize; // inner grid origin x
-  const oy = padding + outerSize; // inner grid origin y
+  // ── Layout（SVG 以 viewBox 單位）──
+  const totalW = 300;
+  const totalH = 320;
+  const szW = 168;   // 好球帶寬
+  const szH = 204;   // 好球帶高
+  const szX = (totalW - szW) / 2;
+  const szY = (totalH - szH) / 2;
+  const cellW = szW / 3;
+  const cellH = szH / 3;
+  const cx = totalW / 2; // 十字切分中心 = 好球帶正中心
+  const cy = totalH / 2;
 
-  const innerZones = [
+  const innerZones: { id: ZoneId; row: number; col: number }[] = [
     { id: "z1", row: 0, col: 0 }, { id: "z2", row: 0, col: 1 }, { id: "z3", row: 0, col: 2 },
     { id: "z4", row: 1, col: 0 }, { id: "z5", row: 1, col: 1 }, { id: "z6", row: 1, col: 2 },
     { id: "z7", row: 2, col: 0 }, { id: "z8", row: 2, col: 1 }, { id: "z9", row: 2, col: 2 },
   ];
 
+  // 4 個外側象限：以 (cx, cy) 為十字中心，向 4 個角落延伸到整個外框
+  const outerZones: { id: ZoneId; x: number; y: number; w: number; h: number; labelX: number; labelY: number }[] = [
+    // z11 左上
+    { id: "z11", x: 0,   y: 0,   w: cx,        h: cy,        labelX: szX / 2,              labelY: szY / 2 },
+    // z12 右上
+    { id: "z12", x: cx,  y: 0,   w: totalW-cx, h: cy,        labelX: totalW - szX / 2,     labelY: szY / 2 },
+    // z13 左下
+    { id: "z13", x: 0,   y: cy,  w: cx,        h: totalH-cy, labelX: szX / 2,              labelY: totalH - szY / 2 },
+    // z14 右下
+    { id: "z14", x: cx,  y: cy,  w: totalW-cx, h: totalH-cy, labelX: totalW - szX / 2,     labelY: totalH - szY / 2 },
+  ];
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <Badge variant="secondary" className="text-[10px]">模擬數據</Badge>
+      <ChartControls>
         <Select value={metric} onValueChange={setMetric}>
-          <SelectTrigger className="w-[120px] h-8 text-xs">
+          <SelectTrigger className="w-[180px] h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -63,53 +126,99 @@ const StrikeZoneHeatmap = () => {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </ChartControls>
 
       <div className="flex justify-center">
-        <svg viewBox={`0 0 ${totalW} ${totalH}`} className="w-full max-w-[280px] h-auto">
-          {/* Outer zones */}
-          <rect x={ox} y={oy - outerSize} width={zoneSize * 3} height={outerSize} fill={getColor(data.top, min, max)} opacity={0.5} stroke="#666" strokeWidth={0.5} />
-          <text x={ox + zoneSize * 1.5} y={oy - outerSize / 2} textAnchor="middle" dominantBaseline="middle" fontSize={10} fill="white">{data.top}</text>
-
-          <rect x={ox} y={oy + zoneSize * 3} width={zoneSize * 3} height={outerSize} fill={getColor(data.bottom, min, max)} opacity={0.5} stroke="#666" strokeWidth={0.5} />
-          <text x={ox + zoneSize * 1.5} y={oy + zoneSize * 3 + outerSize / 2} textAnchor="middle" dominantBaseline="middle" fontSize={10} fill="white">{data.bottom}</text>
-
-          <rect x={ox - outerSize} y={oy} width={outerSize} height={zoneSize * 3} fill={getColor(data.left, min, max)} opacity={0.5} stroke="#666" strokeWidth={0.5} />
-          <text x={ox - outerSize / 2} y={oy + zoneSize * 1.5} textAnchor="middle" dominantBaseline="middle" fontSize={10} fill="white">{data.left}</text>
-
-          <rect x={ox + zoneSize * 3} y={oy} width={outerSize} height={zoneSize * 3} fill={getColor(data.right, min, max)} opacity={0.5} stroke="#666" strokeWidth={0.5} />
-          <text x={ox + zoneSize * 3 + outerSize / 2} y={oy + zoneSize * 1.5} textAnchor="middle" dominantBaseline="middle" fontSize={10} fill="white">{data.right}</text>
-
-          {/* Inner 9 zones */}
-          {innerZones.map((z) => {
-            const x = ox + z.col * zoneSize;
-            const y = oy + z.row * zoneSize;
+        <svg viewBox={`0 0 ${totalW} ${totalH}`} className="w-full max-w-[300px] h-auto">
+          {/* 外側 4 個象限（壞球區），以十字切分 */}
+          {outerZones.map((z) => {
             const val = data[z.id];
             return (
               <g key={z.id}>
-                <rect x={x} y={y} width={zoneSize} height={zoneSize} fill={getColor(val, min, max)} opacity={0.75} stroke="#888" strokeWidth={1} />
-                <text x={x + zoneSize / 2} y={y + zoneSize / 2} textAnchor="middle" dominantBaseline="middle" fontSize={13} fontWeight="bold" fill="white">{val}</text>
+                <rect
+                  x={z.x}
+                  y={z.y}
+                  width={z.w}
+                  height={z.h}
+                  fill={getColor(val, min, max)}
+                  opacity={0.65}
+                  stroke="rgba(71,85,105,0.9)"
+                  strokeWidth={1}
+                />
+                <text
+                  x={z.labelX}
+                  y={z.labelY}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={14}
+                  fontWeight={600}
+                  fill="#1e293b"
+                >
+                  {meta.format(val)}
+                </text>
               </g>
             );
           })}
 
-          {/* Strike zone border */}
-          <rect x={ox} y={oy} width={zoneSize * 3} height={zoneSize * 3} fill="none" stroke="white" strokeWidth={2} />
+          {/* 好球帶內側 3x3（畫在外側象限之上，遮住重疊區） */}
+          {innerZones.map((z) => {
+            const x = szX + z.col * cellW;
+            const y = szY + z.row * cellH;
+            const val = data[z.id];
+            return (
+              <g key={z.id}>
+                <rect
+                  x={x}
+                  y={y}
+                  width={cellW}
+                  height={cellH}
+                  fill={getColor(val, min, max)}
+                  opacity={0.9}
+                  stroke="rgba(71,85,105,0.9)"
+                  strokeWidth={1}
+                />
+                <text
+                  x={x + cellW / 2}
+                  y={y + cellH / 2}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={15}
+                  fontWeight={700}
+                  fill="#1e293b"
+                >
+                  {meta.format(val)}
+                </text>
+              </g>
+            );
+          })}
 
-          {/* Batter hand indicator */}
-          <text x={totalW - padding + 5} y={oy + zoneSize * 1.5} fontSize={11} fill="#999" textAnchor="start">R</text>
+          {/* 好球帶外框加粗強調 */}
+          <rect
+            x={szX}
+            y={szY}
+            width={szW}
+            height={szH}
+            fill="none"
+            stroke="#0f172a"
+            strokeWidth={2.4}
+          />
         </svg>
       </div>
 
-      {/* Color legend */}
+      {/* 色階圖例：低 → 高 */}
       <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
-        <span>冷</span>
+        <span>低</span>
         <div className="flex h-3">
-          {Array.from({ length: 10 }, (_, i) => (
-            <div key={i} className="w-4 h-full" style={{ backgroundColor: getColor(min + (i / 9) * (max - min), min, max) }} />
+          {Array.from({ length: 12 }, (_, i) => (
+            <div
+              key={i}
+              className="w-4 h-full"
+              style={{ backgroundColor: getColor(min + (i / 11) * (max - min), min, max) }}
+            />
           ))}
         </div>
-        <span>熱</span>
+        <span>高</span>
+        <span className="ml-2">單位：{meta.unit}</span>
       </div>
     </div>
   );

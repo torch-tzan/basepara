@@ -14,6 +14,7 @@ import { BarChart3, Info, Loader2 } from "lucide-react";
 import ScenarioFilter from "./ScenarioFilter";
 import PitchTypeFilter from "./PitchTypeFilter";
 import { chartComponentMap } from "./charts";
+import { ChartControlsContext, ChartFiltersContext } from "./chartControlsContext";
 import type { ReportModule } from "@/data/reportModules";
 
 interface ChartModuleCardProps {
@@ -62,49 +63,55 @@ const ChartModuleCard = ({
   // Auto-resolve chart component from registry
   const ChartComponent = chartComponentMap[module.id];
 
+  // 圖表子元件用的控制項 slot（mode 切換 / metric select 會 portal 進來）
+  const [controlsSlot, setControlsSlot] = useState<HTMLDivElement | null>(null);
+  // 圖表子元件用的左側篩選 slot（球種按鈕等）
+  const [filtersSlot, setFiltersSlot] = useState<HTMLDivElement | null>(null);
+
   return (
     <Card className="break-inside-avoid">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-primary flex-shrink-0" />
-            {module.name}
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
-              {module.specRef}
-            </Badge>
-          </CardTitle>
-          {module.status === "pending_data" && (
-            <Badge
-              variant="secondary"
-              className="text-[10px] px-2 py-0.5 text-yellow-600 dark:text-yellow-400 border-yellow-500/30 flex-shrink-0"
-            >
-              待數據
-            </Badge>
-          )}
-        </div>
+        <CardTitle className="text-base flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-primary flex-shrink-0" />
+          {module.name}
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+            {module.specRef}
+          </Badge>
+        </CardTitle>
 
-        {/* Filter area — hidden during print */}
-        <div className="pt-2 print:hidden">
-          {isBatting && (
-            <ScenarioFilter
-              options={scenarioOptions}
-              selected={scenarios}
-              onChange={handleScenariosChange}
-            />
-          )}
-          {isPitching && (
-            <PitchTypeFilter
-              options={pitchTypeOptions}
-              selected={pitchType}
-              onChange={handlePitchTypeChange}
-            />
-          )}
+        {/* 標題下方：左=情境/球種篩選、右=圖表控制項 slot（列印隱藏） */}
+        <div className="flex items-center justify-between gap-2 pt-2 print:hidden">
+          <div className="flex items-center gap-2">
+            {!module.hideModuleFilter && isBatting && (
+              <ScenarioFilter
+                options={scenarioOptions}
+                selected={scenarios}
+                onChange={handleScenariosChange}
+              />
+            )}
+            {!module.hideModuleFilter && isPitching && (
+              <PitchTypeFilter
+                options={pitchTypeOptions}
+                selected={pitchType}
+                onChange={handlePitchTypeChange}
+              />
+            )}
+            {/* 圖表自管的篩選器（球種多選等）portal 進來 */}
+            {module.hideModuleFilter && (
+              <div ref={setFiltersSlot} className="flex items-center gap-2" />
+            )}
+          </div>
+          <div ref={setControlsSlot} className="flex items-center gap-2" />
         </div>
       </CardHeader>
 
       <CardContent>
         {children ? (
-          children
+          <ChartFiltersContext.Provider value={filtersSlot}>
+            <ChartControlsContext.Provider value={controlsSlot}>
+              {children}
+            </ChartControlsContext.Provider>
+          </ChartFiltersContext.Provider>
         ) : ChartComponent ? (
           <Suspense
             fallback={
@@ -113,7 +120,11 @@ const ChartModuleCard = ({
               </div>
             }
           >
-            <ChartComponent />
+            <ChartFiltersContext.Provider value={filtersSlot}>
+              <ChartControlsContext.Provider value={controlsSlot}>
+                <ChartComponent />
+              </ChartControlsContext.Provider>
+            </ChartFiltersContext.Provider>
           </Suspense>
         ) : (
           /* Fallback placeholder */

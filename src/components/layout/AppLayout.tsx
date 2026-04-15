@@ -88,7 +88,7 @@ const AppLayout = ({ children, title, headerAction, noPadding }: AppLayoutProps)
 
   // Desktop layout (original)
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden print:block print:h-auto print:overflow-visible">
       {/* Overlay backdrop for tablet when sidebar is open */}
       {isTablet && !sidebarCollapsed && (
         <div 
@@ -108,7 +108,7 @@ const AppLayout = ({ children, title, headerAction, noPadding }: AppLayoutProps)
         onClick={handleContentClick}
       >
         {/* Header */}
-        <header className="bg-card border-b border-border px-6 h-[72px] shrink-0 flex items-center">
+        <header className="bg-card border-b border-border px-6 h-[72px] shrink-0 flex items-center print:hidden">
           <div className="flex items-center justify-between w-full">
             <h1 className="text-xl font-semibold text-foreground tracking-tight">{title}</h1>
             <div className="flex items-center gap-3">
@@ -119,9 +119,9 @@ const AppLayout = ({ children, title, headerAction, noPadding }: AppLayoutProps)
         </header>
         
         {/* Main Content with page transition */}
-        <main 
+        <main
           key={location.pathname}
-          className="flex-1 p-6 overflow-auto page-transition"
+          className="flex-1 p-6 overflow-auto page-transition print:p-0 print:overflow-visible print-reset-layout"
         >
           {displayChildren}
         </main>

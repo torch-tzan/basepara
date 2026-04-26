@@ -15,6 +15,10 @@ import HittingDataSection from "@/components/reports/HittingDataSection";
 import PitchTypeSection, { allPitchTypes } from "@/components/reports/PitchTypeSection";
 import MobilitySection from "@/components/reports/MobilitySection";
 import MechanicsChecklist from "@/components/reports/MechanicsChecklist";
+import AdvancedMechanicsTable from "@/components/reports/AdvancedMechanicsTable";
+import { isAICoachReport } from "@/data/advancedMechanicsCheckpoints";
+import BattingDistributionChart from "@/components/reports/charts/BattingDistributionChart";
+import FitnessDistributionChart from "@/components/reports/charts/FitnessDistributionChart";
 import MechanicsExplanation from "@/components/reports/MechanicsExplanation";
 import VideoPlayer, { type VideoClip } from "@/components/reports/VideoPlayer";
 import { battingMechanicsItems, pitchingMechanicsItems } from "@/components/reports/MechanicsChecklist";
@@ -194,7 +198,10 @@ const ReportView = () => {
       render: () => (
         <>
           <PlayerInfoHeader player={{ ...playerInfo, level: levelBaseline }} reportType={reportType} />
-          <FitnessSection previousCount={compareCount} levelLabel={levelBaseline} />
+          <FitnessSection previousCount={compareCount} levelLabel={levelBaseline} showPR={true} studentId={report.student_id} />
+          <div className="mt-4">
+            <FitnessDistributionChart compact />
+          </div>
         </>
       ),
     });
@@ -216,7 +223,13 @@ const ReportView = () => {
     pages.push({
       key: "swing",
       render: () => (
-        <SwingDataSection previousCount={compareCount} testMethod={testMethod} levelLabel={levelBaseline} />
+        <div className="flex flex-col h-full">
+          <SwingDataSection previousCount={compareCount} testMethod={testMethod} levelLabel={levelBaseline} showPR={true} studentId={report.student_id} />
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <BattingDistributionChart defaultMetric="swing_speed" lockMetric compact />
+            <BattingDistributionChart defaultMetric="swing_time" lockMetric compact />
+          </div>
+        </div>
       ),
     });
   }
@@ -225,13 +238,19 @@ const ReportView = () => {
     pages.push({
       key: "hitting",
       render: () => (
-        <HittingDataSection previousCount={compareCount} testMethod={testMethod} levelLabel={levelBaseline} />
+        <div className="flex flex-col h-full">
+          <HittingDataSection previousCount={compareCount} testMethod={testMethod} levelLabel={levelBaseline} showPR={true} studentId={report.student_id} />
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <BattingDistributionChart defaultMetric="exit_velo" lockMetric compact />
+            <BattingDistributionChart defaultMetric="launch_angle" lockMetric compact />
+          </div>
+        </div>
       ),
     });
   }
 
   if (isPitching && compareCount === 0 && hasSection("pitch")) {
-    pages.push({ key: "pitch-single", render: () => <PitchTypeSection previousCount={0} /> });
+    pages.push({ key: "pitch-single", render: () => <PitchTypeSection previousCount={0} studentId={report.student_id} /> });
   }
 
   if (isPitching && showPitchPerTypePages && hasSection("pitch")) {
@@ -239,46 +258,82 @@ const ReportView = () => {
       pages.push({
         key: `pitch-compare-${pt}`,
         render: () => (
-          <PitchTypeSection previousCount={compareCount} singlePitchType={pt} />
+          <PitchTypeSection previousCount={compareCount} singlePitchType={pt} studentId={report.student_id} />
         ),
       });
     });
   }
 
   if (hasSection("mechanics")) {
+    // 使用 AI Coach 動態捕捉 → 進階查核點；否則 → 一般查核清單（26 項切兩段）
+    const useAICoach = isAICoachReport(report.date);
+    const MECHANICS_PAGE_LIMIT = 14;
+    const mechanicsPage1 = mechanicsItems.slice(0, MECHANICS_PAGE_LIMIT);
+    const mechanicsPage2 = useAICoach ? [] : mechanicsItems.slice(MECHANICS_PAGE_LIMIT);
+
     pages.push({
       key: "mechanics",
-      render: () => (
-        <MechanicsChecklist type={isBatting ? "batting" : "pitching"} />
-      ),
+      render: () =>
+        useAICoach ? (
+          <AdvancedMechanicsTable type={isBatting ? "batting" : "pitching"} />
+        ) : (
+          <MechanicsChecklist
+            type={isBatting ? "batting" : "pitching"}
+            items={mechanicsPage1}
+          />
+        ),
     });
 
-    // 影片獨立一頁，且列印 / PDF 輸出時不顯示
+    // 影片（列印時不顯示）— 投球超過 14 項時，溢位的項目與影片同頁
     pages.push({
       key: "mechanics-video",
-      printHidden: true,
+      printHidden: mechanicsPage2.length === 0,
       render: () => (
-        <div className="space-y-4">
-          <h3 className="text-base font-semibold text-foreground">檢測影片</h3>
-          <VideoPlayer
-            type={isBatting ? "batting" : "pitching"}
-            clips={videoClips}
-            date={report.date}
-          />
+        <div className="space-y-6">
+          {mechanicsPage2.length > 0 && (
+            <MechanicsChecklist
+              type={isBatting ? "batting" : "pitching"}
+              items={mechanicsPage2}
+              title={`${isBatting ? "打擊" : "投球"}動作機制查核（續）`}
+            />
+          )}
+          <div className="space-y-4 print:hidden">
+            <h3 className="text-base font-semibold text-foreground">檢測影片</h3>
+            <VideoPlayer
+              type={isBatting ? "batting" : "pitching"}
+              clips={videoClips}
+              date={report.date}
+            />
+          </div>
         </div>
       ),
     });
 
-    pages.push({
-      key: "mechanics-explain",
-      render: () => (
-        <MechanicsExplanation
-          items={mechanicsItems}
-          personalAdvice={report.markdown_notes || undefined}
-          readOnly
-        />
-      ),
-    });
+    // 機制說明頁僅完整版顯示；AI Coach 簡易版不附帶罐頭文字
+    // 但若有教練回覆，仍保留回覆區塊
+    if (!useAICoach) {
+      pages.push({
+        key: "mechanics-explain",
+        render: () => (
+          <MechanicsExplanation
+            items={mechanicsItems}
+            personalAdvice={report.markdown_notes || undefined}
+            readOnly
+          />
+        ),
+      });
+    } else if (report.markdown_notes) {
+      pages.push({
+        key: "coach-advice",
+        render: () => (
+          <MechanicsExplanation
+            items={[]}
+            personalAdvice={report.markdown_notes || undefined}
+            readOnly
+          />
+        ),
+      });
+    }
   }
 
   // 圖表頁面（純檢視）

@@ -23,7 +23,7 @@ import { useTeams } from "@/contexts/TeamsContext";
 import { useAccounts } from "@/contexts/AccountsContext";
 import { useStudents } from "@/contexts/StudentsContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
-import { teamLevelOptions, teamAttributeOptions } from "@/data/teamsConfig";
+import { teamLevelOptions, teamAttributeOptions, countyOptions } from "@/data/teamsConfig";
 import { FormSelect } from "@/components/ui/form-select";
 import { z } from "zod";
 
@@ -92,6 +92,7 @@ const TeamForm = () => {
   const [name, setName] = useState("");
   const [level, setLevel] = useState("");
   const [attribute, setAttribute] = useState("棒球");
+  const [county, setCounty] = useState("");
   const [selectedCoachIds, setSelectedCoachIds] = useState<string[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -105,6 +106,7 @@ const TeamForm = () => {
       setName(existingTeam.name);
       setLevel(existingTeam.level || "");
       setAttribute(existingTeam.attribute || "");
+      setCounty(existingTeam.county || "");
       setSelectedCoachIds(existingTeam.coachIds);
     }
   }, [existingTeam]);
@@ -116,13 +118,14 @@ const TeamForm = () => {
         name !== existingTeam.name ||
         level !== (existingTeam.level || "") ||
         attribute !== (existingTeam.attribute || "") ||
+        county !== (existingTeam.county || "") ||
         JSON.stringify(selectedCoachIds.sort()) !==
           JSON.stringify(existingTeam.coachIds.sort());
       setHasChanges(changed);
     } else {
-      setHasChanges(name !== "" || level !== "" || attribute !== "棒球" || selectedCoachIds.length > 0);
+      setHasChanges(name !== "" || level !== "" || attribute !== "棒球" || county !== "" || selectedCoachIds.length > 0);
     }
-  }, [name, level, attribute, selectedCoachIds, isEditing, existingTeam]);
+  }, [name, level, attribute, county, selectedCoachIds, isEditing, existingTeam]);
 
   const coachOptions = useMemo(
     () => accounts
@@ -171,6 +174,7 @@ const TeamForm = () => {
           name,
           level,
           attribute,
+          county: county || undefined,
           coachIds: selectedCoachIds,
         });
         
@@ -192,6 +196,7 @@ const TeamForm = () => {
           name,
           level,
           attribute,
+          county: county || undefined,
           coachIds: selectedCoachIds,
         });
         
@@ -340,6 +345,16 @@ const TeamForm = () => {
                 placeholder="請選擇屬性"
                 options={teamAttributeOptions}
                 error={errors.attribute}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <FormSelect
+                label="所屬縣市"
+                value={county}
+                onValueChange={setCounty}
+                placeholder="請選擇縣市"
+                options={countyOptions}
               />
             </div>
 

@@ -36,6 +36,11 @@ export interface RoleData {
   description: string;
   permissions: Record<PermissionModuleId, ModulePermission>;
   isSystem?: boolean;
+  /**
+   * 此角色上傳的檢測資料是否納入「層級比較」與「檢測報告比較」的母體。
+   * 預設僅 Admin、場館教練 為 true；球隊教練上傳的資料不納入。
+   */
+  includeInLevelComparison?: boolean;
 }
 
 // Helper to convert database role to frontend format
@@ -60,12 +65,22 @@ const convertRole = (role: RoleWithPermissions): RoleData => {
     };
   });
   
+  // 預設「納入層級比較」：DB 若有欄位以 DB 為準，否則依角色 id 預設
+  // - Admin (`admin`)、場館教練 (`venue_coach`) → true
+  // - 球隊教練 (`team_coach`) 與其他自訂角色 → false（除非 DB 顯式設為 true）
+  const dbInclude = (role as { include_in_level_comparison?: boolean | null }).include_in_level_comparison;
+  const includeInLevelComparison =
+    dbInclude !== undefined && dbInclude !== null
+      ? dbInclude
+      : role.id === "admin" || role.id === "venue_coach";
+
   return {
     id: role.id,
     name: role.name,
     description: role.description || "",
     permissions: permissions as Record<PermissionModuleId, ModulePermission>,
     isSystem: role.is_system ?? false,
+    includeInLevelComparison,
   };
 };
 

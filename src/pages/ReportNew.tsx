@@ -144,18 +144,22 @@ const ReportNew = () => {
   const fixedSections = reportType ? FIXED_SECTIONS[reportType] || [] : [];
 
   const searchableStudents = useMemo(() => {
-    return filteredStudents.map((s) => {
-      const team = teams.find((t) => t.id === s.team_id);
-      return { id: s.id, name: s.name, teamName: team?.name || "" };
-    });
+    return filteredStudents.map((s) => ({
+      id: s.id,
+      name: s.name,
+      teamName: s.teamName || teams.find((t) => t.id === s.teamId)?.name || "",
+      level: s.level || teams.find((t) => t.id === s.teamId)?.level || "",
+    }));
   }, [filteredStudents, teams]);
 
   const selectedStudent = useMemo(() => {
     if (!selectedStudentId) return null;
     const student = students.find((s) => s.id === selectedStudentId);
     if (!student) return null;
-    const team = teams.find((t) => t.id === student.team_id);
-    return { ...student, teamName: team?.name || "" };
+    return {
+      ...student,
+      teamName: student.teamName || teams.find((t) => t.id === student.teamId)?.name || "",
+    };
   }, [selectedStudentId, students, teams]);
 
   const availableDates = useMemo(() => {
@@ -196,9 +200,18 @@ const ReportNew = () => {
     return `${testDate} · ${selectedStudent.name} · ${reportType}報告`;
   }, [selectedStudent, reportType, testDate]);
 
+  /** 各類型報告的預設勾選圖表 module id（順序即顯示順序） */
+  const DEFAULT_MODULES: Record<string, string[]> = {
+    // 打擊：個人成績分佈、攻擊角度/揮擊時間散佈、擊球落點＋強勁程度場地
+    打擊: ["batting_3_6", "batting_3_5", "batting_3_4"],
+    // 投球：個人成績分佈固定第一、球路位移圖第二
+    投球: ["pitching_4_1", "pitching_4_2"],
+  };
+
   const handleReportTypeChange = (value: string) => {
     setReportType(value as ReportType);
-    setSelectedModules([]);
+    const defaults = DEFAULT_MODULES[value] || [];
+    setSelectedModules(defaults.map((moduleId, i) => ({ moduleId, order: i + 1 })));
     setTestDate("");
   };
 
@@ -351,30 +364,33 @@ const ReportNew = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>測驗方式</Label>
-                <Select
-                  value={testMethod}
-                  onValueChange={(v) => setTestMethod(v as TestMethod)}
-                  disabled={!testDate || availableTestMethods.length <= 1}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={!testDate ? "請先選擇檢測日期" : "選擇測驗方式"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableTestMethods.map((m) => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground">
-                  {!testDate
-                    ? "依當日檢測資料自動帶入"
-                    : availableTestMethods.length === 1
-                    ? `當日僅有「${availableTestMethods[0]}」檢測`
-                    : `當日有 ${availableTestMethods.length} 種檢測方式，可切換`}
-                </p>
-              </div>
+              {/* 投球報告不需要測驗方式（無實戰/發球機區分） */}
+              {reportType !== "投球" && (
+                <div className="space-y-2">
+                  <Label>測驗方式</Label>
+                  <Select
+                    value={testMethod}
+                    onValueChange={(v) => setTestMethod(v as TestMethod)}
+                    disabled={!testDate || availableTestMethods.length <= 1}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={!testDate ? "請先選擇檢測日期" : "選擇測驗方式"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTestMethods.map((m) => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    {!testDate
+                      ? "依當日檢測資料自動帶入"
+                      : availableTestMethods.length === 1
+                      ? `當日僅有「${availableTestMethods[0]}」檢測`
+                      : `當日有 ${availableTestMethods.length} 種檢測方式，可切換`}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* ── 第三行：比較層級基準 / 比較模式（各 1/3） ── */}
@@ -414,7 +430,7 @@ const ReportNew = () => {
                   <span className="text-muted-foreground ml-2">
                     {autoTitle}
                     {previousDates.length > 0 && `（比較：${previousDates.join("、")}）`}
-                    {` · ${testMethod} · 對比${levelBaseline}`}
+                    {reportType === "投球" ? ` · 對比${levelBaseline}` : ` · ${testMethod} · 對比${levelBaseline}`}
                   </span>
                 </div>
                 <Badge variant="outline" className="text-green-600 dark:text-green-400 border-green-500/30">

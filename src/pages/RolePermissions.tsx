@@ -57,6 +57,11 @@ const RolePermissions = () => {
   );
   const [roleName, setRoleName] = useState(isNewRole ? "" : (roleData?.name || ""));
   const [roleDescription, setRoleDescription] = useState(isNewRole ? "" : (roleData?.description || ""));
+  // 「納入層級比較」toggle — 預設：新角色 false；既有角色取自 roleData
+  const initialIncludeInComparison = isNewRole
+    ? false
+    : (roleData?.includeInLevelComparison ?? false);
+  const [includeInLevelComparison, setIncludeInLevelComparison] = useState(initialIncludeInComparison);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [errors, setErrors] = useState<{ roleName?: string }>({});
@@ -72,14 +77,15 @@ const RolePermissions = () => {
     const currentDescription = roleDescriptionRef.current?.value ?? roleDescription;
     
     if (isNewRole) {
-      return currentName !== "" || currentDescription !== "";
+      return currentName !== "" || currentDescription !== "" || includeInLevelComparison !== false;
     }
     return (
       JSON.stringify(permissions) !== JSON.stringify(initialPermissions) ||
       currentName !== roleData?.name ||
-      currentDescription !== roleData?.description
+      currentDescription !== roleData?.description ||
+      includeInLevelComparison !== initialIncludeInComparison
     );
-  }, [permissions, initialPermissions, roleName, roleDescription, roleData, isNewRole]);
+  }, [permissions, initialPermissions, roleName, roleDescription, roleData, isNewRole, includeInLevelComparison, initialIncludeInComparison]);
 
   const isAdmin = roleId === "admin";
   const isSystemRole = roleData?.isSystem;
@@ -164,6 +170,7 @@ const RolePermissions = () => {
           name: currentName.trim(),
           description: currentDescription.trim(),
           permissions,
+          includeInLevelComparison,
         });
         toast({
           title: "已新增角色",
@@ -174,6 +181,7 @@ const RolePermissions = () => {
           name: currentName.trim(),
           description: currentDescription.trim(),
           permissions,
+          includeInLevelComparison,
         });
         toast({
           title: "已儲存",
@@ -296,6 +304,23 @@ const RolePermissions = () => {
                     </Tooltip>
                   </div>
                 </TableHead>
+                <TableHead className="text-center w-[160px]">
+                  <div className="flex items-center justify-center gap-1">
+                    納入層級比較
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-sm">
+                        <p>
+                          僅適用於「資料上傳」。開啟後，此角色上傳的檢測資料才會被納入「層級比較」與「檢測報告比較」的母體計算。
+                          <br /><br />
+                          建議僅 Admin、場館教練 等可信來源開啟；球隊教練上傳的資料通常為球隊內部訓練紀錄，不納入跨層級統計。
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -329,6 +354,17 @@ const RolePermissions = () => {
                         onCheckedChange={() => togglePermission(module.id, "fullSite")}
                         disabled={isAdmin || !perms.view}
                       />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {module.id === "upload" ? (
+                        <Switch
+                          checked={includeInLevelComparison}
+                          onCheckedChange={setIncludeInLevelComparison}
+                          disabled={isAdmin || !perms.view}
+                        />
+                      ) : (
+                        <span className="text-muted-foreground/40 text-xs">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 );

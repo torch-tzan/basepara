@@ -30,6 +30,8 @@ export interface StudentData {
   name: string;
   teamId: string;
   teamName: string;
+  /** 層級（自球隊自動帶入：高中甲組、大專甲組等） */
+  level?: string;
   position: string;
   playerType: string;
   height: string;
@@ -57,6 +59,8 @@ export interface StudentFormInput {
   playerType?: string;
   throwingHand?: string;
   battingHand?: string;
+  /** 學員層級（建立時必填，可手動切換） */
+  level?: string;
   teamId: string;
   responsibleCoaches: string[];
 }
@@ -113,6 +117,10 @@ export const StudentsProvider = ({ children }: { children: ReactNode }) => {
   const getTeamAttribute = (teamId: string): string | undefined => {
     return (teamsData || []).find((t) => t.id === teamId)?.attribute || undefined;
   };
+
+  const getTeamLevel = (teamId: string): string | undefined => {
+    return (teamsData || []).find((t) => t.id === teamId)?.level || undefined;
+  };
   
   const getTeamCoachNames = (teamId: string): string[] => {
     const team = (teamsData || []).find((t) => t.id === teamId);
@@ -135,6 +143,8 @@ export const StudentsProvider = ({ children }: { children: ReactNode }) => {
     email: student.email,
     teamId: student.team_id || "",
     teamName: getTeamName(student.team_id || ""),
+    // 優先用學員自己的 level（DB 加欄後生效），否則 fallback 為球隊 level
+    level: ((student as { level?: string }).level) || getTeamLevel(student.team_id || ""),
     position: student.position || "",
     playerType: (student as any).player_type || "",
     height: student.height || "",
@@ -196,6 +206,7 @@ export const StudentsProvider = ({ children }: { children: ReactNode }) => {
       email: input.email,
       teamId: input.teamId,
       teamName: getTeamName(input.teamId),
+      level: input.level || getTeamLevel(input.teamId),
       position: input.position || "",
       playerType: input.playerType || "",
       height: input.height || "",
@@ -241,6 +252,7 @@ export const StudentsProvider = ({ children }: { children: ReactNode }) => {
       email: input.email,
       teamId: input.teamId,
       teamName: getTeamName(input.teamId),
+      level: input.level || getTeamLevel(input.teamId),
       position: input.position || "",
       playerType: input.playerType || "",
       height: input.height || "",

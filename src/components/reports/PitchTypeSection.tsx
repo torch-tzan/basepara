@@ -1,10 +1,14 @@
 import { cn } from "@/lib/utils";
 import { ArrowUp, ArrowDown, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getPitchMockMetrics, getArmMockMetrics } from "@/data/mockStudentMetrics";
+import { getMetricDescription } from "@/data/metricDescriptions";
 
 interface PitchCell {
   value: number | string | null;
   prevs?: (number | string | null)[];
+  /** 標準差（搭配 row.showSD 使用，顯示 mean±SD） */
+  sd?: number | null;
 }
 
 interface PitchTypeMetric {
@@ -28,9 +32,9 @@ const mockPitchMetrics: PitchTypeMetric[] = [
   { label: "旋轉方向", values: { 四縫線: { value: "12:15" }, 曲球: { value: "7:30" }, 滑球: { value: "9:45" }, 變速球: { value: "1:00" } }, dataSource: "SpinDirection" },
   { label: "旋轉效率", unit: "%", values: { 四縫線: { value: 95.2, prevs: [94.8, 94.1] }, 曲球: { value: 88.5, prevs: [87.2, 86.0] }, 滑球: { value: 72.3, prevs: [71.0, 69.5] }, 變速球: { value: 91.5, prevs: [90.2, 89.0] } }, decimals: 1, dataSource: "SpinEfficiency" },
   { label: "陀螺角度", unit: "°", values: { 四縫線: { value: 5.2 }, 曲球: { value: 42.5 }, 滑球: { value: 55.3 }, 變速球: { value: 8.1 } }, decimals: 1, dataSource: "GyroDegree" },
-  { label: "轉速", unit: "rpm", values: { 四縫線: { value: 2250, prevs: [2200, 2150] }, 曲球: { value: 2580, prevs: [2530, 2480] }, 滑球: { value: 2380, prevs: [2340, 2290] }, 變速球: { value: 1820, prevs: [1790, 1750] } }, decimals: 0, showSD: true, dataSource: "TotalSpin" },
-  { label: "垂直位移", unit: "cm", values: { 四縫線: { value: 42.5, prevs: [41.2, 39.8] }, 曲球: { value: -32.1, prevs: [-31.5, -30.8] }, 滑球: { value: 18.3, prevs: [17.8, 17.0] }, 變速球: { value: 35.2, prevs: [34.5, 33.5] } }, decimals: 1, showSD: true, dataSource: "VerticalBreak" },
-  { label: "水平位移", unit: "cm", values: { 四縫線: { value: -18.5, prevs: [-17.8, -17.0] }, 曲球: { value: 12.3, prevs: [11.5, 10.8] }, 滑球: { value: -5.2, prevs: [-4.8, -4.2] }, 變速球: { value: -22.1, prevs: [-21.5, -20.8] } }, decimals: 1, showSD: true, dataSource: "HorizontalBreak" },
+  { label: "轉速", unit: "rpm", values: { 四縫線: { value: 2250, prevs: [2200, 2150], sd: 85 }, 曲球: { value: 2580, prevs: [2530, 2480], sd: 92 }, 滑球: { value: 2380, prevs: [2340, 2290], sd: 78 }, 變速球: { value: 1820, prevs: [1790, 1750], sd: 65 } }, decimals: 0, showSD: true, dataSource: "TotalSpin" },
+  { label: "垂直位移", unit: "cm", values: { 四縫線: { value: 42.5, prevs: [41.2, 39.8], sd: 3.2 }, 曲球: { value: -32.1, prevs: [-31.5, -30.8], sd: 4.1 }, 滑球: { value: 18.3, prevs: [17.8, 17.0], sd: 2.8 }, 變速球: { value: 35.2, prevs: [34.5, 33.5], sd: 3.5 } }, decimals: 1, showSD: true, dataSource: "VerticalBreak" },
+  { label: "水平位移", unit: "cm", values: { 四縫線: { value: -18.5, prevs: [-17.8, -17.0], sd: 2.5 }, 曲球: { value: 12.3, prevs: [11.5, 10.8], sd: 3.0 }, 滑球: { value: -5.2, prevs: [-4.8, -4.2], sd: 1.8 }, 變速球: { value: -22.1, prevs: [-21.5, -20.8], sd: 2.2 } }, decimals: 1, showSD: true, dataSource: "HorizontalBreak" },
   { label: "出手延伸", unit: "cm", values: { 四縫線: { value: 185.2, prevs: [184.5, 183.8] }, 曲球: { value: 182.3, prevs: [181.8, 181.0] }, 滑球: { value: 183.5, prevs: [183.0, 182.5] }, 變速球: { value: 184.8, prevs: [184.2, 183.5] } }, decimals: 1, dataSource: "ReleaseExtension" },
   { label: "出手高度", unit: "cm", values: { 四縫線: { value: 178.5, prevs: [178.2, 177.8] }, 曲球: { value: 176.3, prevs: [176.0, 175.5] }, 滑球: { value: 177.5, prevs: [177.2, 176.8] }, 變速球: { value: 178.0, prevs: [177.8, 177.2] } }, decimals: 1, dataSource: "ReleaseHeight" },
   { label: "出手側向", unit: "cm", values: { 四縫線: { value: 52.3, prevs: [52.0, 51.8] }, 曲球: { value: 48.5, prevs: [48.2, 47.8] }, 滑球: { value: 50.1, prevs: [49.8, 49.5] }, 變速球: { value: 51.5, prevs: [51.2, 50.8] } }, decimals: 1, dataSource: "ReleaseSide" },
@@ -59,9 +63,11 @@ interface PitchTypeSectionProps {
    * 不傳或為 undefined 時，一次顯示所有球種（單次檢測模式）。
    */
   singlePitchType?: string;
+  /** 學員 ID — 有值時使用該學員專屬 mock 數據 */
+  studentId?: string;
 }
 
-const PitchTypeSection = ({ previousCount = 0, singlePitchType }: PitchTypeSectionProps) => {
+const PitchTypeSection = ({ previousCount = 0, singlePitchType, studentId }: PitchTypeSectionProps) => {
   const displayTypes = singlePitchType ? [singlePitchType] : allPitchTypes;
   const isSingle = displayTypes.length === 1;
   const prevCols = Array.from({ length: Math.max(0, previousCount) }, (_, i) => i);
@@ -108,7 +114,8 @@ const PitchTypeSection = ({ previousCount = 0, singlePitchType }: PitchTypeSecti
           </thead>
           <tbody>
             {metrics.map((row) => {
-              const hasTooltip = !!(row.formula || row.dataSource);
+              const description = getMetricDescription(row.label);
+              const hasTooltip = !!description;
               return (
               <tr key={row.label} className="border-b border-border/50 hover:bg-muted/20">
                 <td className="py-2 px-3 text-foreground">
@@ -124,8 +131,7 @@ const PitchTypeSection = ({ previousCount = 0, singlePitchType }: PitchTypeSecti
                             <Info className="w-3 h-3 text-muted-foreground/60 cursor-help" />
                           </TooltipTrigger>
                           <TooltipContent side="top" className="max-w-xs text-xs">
-                            {row.formula && <div><strong>公式：</strong>{row.formula}</div>}
-                            {row.dataSource && <div><strong>資料來源：</strong>{row.dataSource}</div>}
+                            {description}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -153,9 +159,13 @@ const PitchTypeSection = ({ previousCount = 0, singlePitchType }: PitchTypeSecti
                         : null
                       : null;
 
+                  const displayValue = row.showSD && cell.sd != null && typeof cell.value === "number"
+                    ? `${fmt(cell.value, row.decimals)} ± ${fmt(cell.sd, row.decimals)}`
+                    : fmt(cell.value, row.decimals);
+
                   return [
                     <td key={`${pt}-cur-${row.label}`} className="py-2 px-3 text-center font-medium">
-                      {fmt(cell.value, row.decimals)}
+                      {displayValue}
                       {arrow}
                     </td>,
                     ...prevCols.map((n) => (
@@ -174,10 +184,13 @@ const PitchTypeSection = ({ previousCount = 0, singlePitchType }: PitchTypeSecti
     </div>
   );
 
+  const pitchData = studentId ? getPitchMockMetrics(studentId) : mockPitchMetrics;
+  const armData = studentId ? getArmMockMetrics(studentId) : mockArmMetrics;
+
   return (
     <>
-      {renderTable("球種數據", mockPitchMetrics)}
-      {renderTable("揮臂數據", mockArmMetrics)}
+      {renderTable("球種數據", pitchData)}
+      {renderTable("揮臂數據", armData)}
     </>
   );
 };

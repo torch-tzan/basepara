@@ -18,6 +18,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStudents } from "@/contexts/StudentsContext";
+import { useTeams } from "@/contexts/TeamsContext";
 import { useToast } from "@/hooks/use-toast";
 import { getModulesByReportType } from "@/data/reportModules";
 import {
@@ -29,6 +30,7 @@ import {
   CheckCircle2,
   XCircle,
   PlayCircle,
+  School,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,11 +47,15 @@ const ReportBatch = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { students } = useStudents();
+  const { teams } = useTeams();
 
   // 設定階段
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [reportType, setReportType] = useState<ReportType>("打擊");
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  /** 勾選要產出的圖表 module id；切換報告類型時重置成全選 */
+  const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([]);
 
   // 產出階段
   const [running, setRunning] = useState(false);
@@ -58,14 +64,62 @@ const ReportBatch = () => {
 
   const allModules = useMemo(() => getModulesByReportType(reportType), [reportType]);
 
+  // 切換報告類型時，預設全選新類型的所有模組
+  useEffect(() => {
+    setSelectedModuleIds(allModules.map((m) => m.id));
+  }, [allModules]);
+
+  const allModulesChecked = selectedModuleIds.length === allModules.length;
+  const toggleModule = (id: string) => {
+    setSelectedModuleIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+  const toggleAllModules = () => {
+    setSelectedModuleIds(allModulesChecked ? [] : allModules.map((m) => m.id));
+  };
+
   // Mock：假設所有學員當日都有資料（實際應查 Supabase）
   const availableStudents = students;
+
+  // 依學校分組
+  const studentsByTeam = useMemo(() => {
+    const map = new Map<string, typeof students>();
+    for (const s of availableStudents) {
+      const key = s.teamId || "__no_team__";
+      const arr = map.get(key) ?? [];
+      arr.push(s);
+      map.set(key, arr);
+    }
+    return map;
+  }, [availableStudents]);
+
+  const toggleTeam = (teamId: string) => {
+    const teamStudentIds = (studentsByTeam.get(teamId) ?? []).map((s) => s.id);
+    const alreadyAll = teamStudentIds.every((id) => selectedIds.includes(id));
+    setSelectedTeamIds((prev) =>
+      alreadyAll ? prev.filter((x) => x !== teamId) : [...prev.filter((x) => x !== teamId), teamId]
+    );
+    if (alreadyAll) {
+      // 取消該校所有
+      setSelectedIds((prev) => prev.filter((id) => !teamStudentIds.includes(id)));
+    } else {
+      // 加入該校所有
+      setSelectedIds((prev) => [...new Set([...prev, ...teamStudentIds])]);
+    }
+  };
 
   const allSelected =
     availableStudents.length > 0 && selectedIds.length === availableStudents.length;
 
   const toggleAll = () => {
-    setSelectedIds(allSelected ? [] : availableStudents.map((s) => s.id));
+    if (allSelected) {
+      setSelectedIds([]);
+      setSelectedTeamIds([]);
+    } else {
+      setSelectedIds(availableStudents.map((s) => s.id));
+      setSelectedTeamIds(teams.map((t) => t.id));
+    }
   };
   const toggleOne = (id: string) => {
     setSelectedIds((prev) =>
@@ -282,23 +336,100 @@ const ReportBatch = () => {
               </div>
             </div>
 
-            {/* 模組預覽 */}
-            <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs">
-              <div className="font-medium text-foreground/80 mb-1.5">
-                預設帶入圖表（共 {allModules.length} 項）
+            {/* 圖表勾選（全部報告共用同一份勾選結果） */}
+            <div className="rounded-md border border-border/60 bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-medium text-foreground/80">
+                  選擇要產出的圖表（{selectedModuleIds.length} / {allModules.length}）
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleAllModules}
+                  className="text-[11px] text-primary hover:underline"
+                >
+                  {allModulesChecked ? "全部取消" : "全部選取"}
+                </button>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {allModules.map((m) => (
-                  <Badge key={m.id} variant="outline" className="text-[10px] font-normal">
-                    {m.specRef} · {m.name}
-                  </Badge>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {allModules.map((m) => {
+                  const checked = selectedModuleIds.includes(m.id);
+                  return (
+                    <label
+                      key={m.id}
+                      className={cn(
+                        "flex items-start gap-2 px-2 py-1.5 rounded border text-xs cursor-pointer transition",
+                        checked
+                          ? "bg-primary/10 border-primary/40"
+                          : "bg-background border-border hover:bg-accent/40"
+                      )}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleModule(m.id)}
+                        className="mt-0.5"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-foreground font-medium truncate">{m.name}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{m.specRef}</div>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
+              <p className="text-[10px] text-muted-foreground">
+                所有勾選的學員都會產出相同的圖表組合
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Step 2: 選學員 */}
+        {/* Step 2: 選學校（快速勾選整校學員） */}
+        {teams.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <School className="w-4 h-4 text-primary" />
+                選擇學校
+                <span className="text-xs text-muted-foreground font-normal ml-1">
+                  勾選後自動帶入該校所有學員
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {teams.map((team) => {
+                  const teamStudentIds = (studentsByTeam.get(team.id) ?? []).map((s) => s.id);
+                  const count = teamStudentIds.length;
+                  const checkedCount = teamStudentIds.filter((id) => selectedIds.includes(id)).length;
+                  const allChecked = count > 0 && checkedCount === count;
+                  return (
+                    <label
+                      key={team.id}
+                      className={cn(
+                        "flex items-center gap-2 p-2.5 rounded-md border cursor-pointer transition-colors",
+                        allChecked ? "border-primary/50 bg-primary/5" : "border-border hover:bg-accent/40"
+                      )}
+                    >
+                      <Checkbox
+                        checked={allChecked}
+                        onCheckedChange={() => toggleTeam(team.id)}
+                        className="h-4 w-4"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{team.name}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {count} 位學員{checkedCount > 0 && !allChecked ? ` · 已選 ${checkedCount}` : ""}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: 選學員 */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">

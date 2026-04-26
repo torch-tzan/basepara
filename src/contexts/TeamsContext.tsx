@@ -13,6 +13,8 @@ export interface Team {
   name: string;
   level?: string;
   attribute?: string;
+  /** 所屬縣市（非必填，用於成績比較 & 報告篩選） */
+  county?: string;
   coachIds: string[];
 }
 
@@ -43,6 +45,7 @@ const convertTeam = (team: TeamWithCoaches): Team => ({
   name: team.name,
   level: team.level || undefined,
   attribute: team.attribute || undefined,
+  county: (team as Record<string, unknown>).county as string | undefined,
   coachIds: team.coachIds,
 });
 

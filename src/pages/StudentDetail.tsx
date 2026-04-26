@@ -155,6 +155,10 @@ const StudentDetail = () => {
                   <p className="text-base font-medium">{student.name}</p>
                 </div>
                 <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">層級</p>
+                  <p className="text-base font-medium">{student.level || "-"}</p>
+                </div>
+                <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">投/野</p>
                   <p className="text-base font-medium">{student.playerType || "-"}</p>
                 </div>

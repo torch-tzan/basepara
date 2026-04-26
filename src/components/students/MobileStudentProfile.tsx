@@ -74,6 +74,10 @@ const MobileStudentProfile = ({ student, allTeamHistories = [] }: MobileStudentP
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">層級</p>
+                <p className="text-base font-medium">{student.level || "-"}</p>
+              </div>
+              <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">位置</p>
                 <p className="text-base font-medium">{student.position || "-"}</p>
               </div>

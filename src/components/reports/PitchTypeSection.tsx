@@ -27,6 +27,57 @@ interface PitchTypeMetric {
 // 球種中文全名列表
 export const allPitchTypes = ["四縫線", "曲球", "滑球", "變速球"];
 
+/**
+ * 球種數據 / 揮臂數據的「層級平均 ± 0.5SD」基準（mock）
+ * 以高中層級為 baseline；其他層級透過倍率調整（與身體素質的層級對照邏輯一致）。
+ * key = 指標 label；inner key = 球種；值為 [平均, SD]
+ */
+type LevelBaseline = "國中" | "高中" | "大學" | "職業";
+
+/** 不同層級對 baseline 的乘數（粗略 mock，主要拉開差異讓 demo 看得到差別） */
+const LEVEL_MULT: Record<LevelBaseline, number> = {
+  國中: 0.88,
+  高中: 1.0,
+  大學: 1.06,
+  職業: 1.12,
+};
+
+/** 球種數據的 baseline（以高中為基準）*/
+const PITCH_BASELINE: Record<string, Record<string, [number, number] | undefined>> = {
+  球速: { 四縫線: [135, 4.5], 曲球: [115, 4.0], 滑球: [123, 4.2], 變速球: [120, 4.0] },
+  旋轉效率: { 四縫線: [93, 3.0], 曲球: [86, 4.0], 滑球: [70, 4.5], 變速球: [89, 3.5] },
+  陀螺角度: { 四縫線: [6, 2.0], 曲球: [40, 5.0], 滑球: [55, 5.0], 變速球: [9, 3.0] },
+  轉速: { 四縫線: [2200, 150], 曲球: [2500, 180], 滑球: [2300, 160], 變速球: [1800, 140] },
+  垂直位移: { 四縫線: [40, 4.5], 曲球: [-30, 5.0], 滑球: [17, 3.5], 變速球: [33, 4.0] },
+  水平位移: { 四縫線: [-17, 3.5], 曲球: [11, 3.5], 滑球: [-5, 2.5], 變速球: [-21, 3.5] },
+  出手延伸: { 四縫線: [180, 6.0], 曲球: [178, 6.0], 滑球: [179, 6.0], 變速球: [180, 6.0] },
+  出手高度: { 四縫線: [175, 6.0], 曲球: [173, 6.0], 滑球: [174, 6.0], 變速球: [175, 6.0] },
+  出手側向: { 四縫線: [50, 5.0], 曲球: [47, 5.0], 滑球: [49, 5.0], 變速球: [50, 5.0] },
+  垂直進壘角度: { 四縫線: [-5, 1.2], 曲球: [-7, 1.5], 滑球: [-5.5, 1.3], 變速球: [-5.2, 1.3] },
+  水平進壘角度: { 四縫線: [1, 1.0], 曲球: [-2.5, 1.2], 滑球: [-1.8, 1.0], 變速球: [0.5, 1.0] },
+};
+
+/** 揮臂數據的 baseline（以高中為基準）*/
+const ARM_BASELINE: Record<string, Record<string, [number, number] | undefined>> = {
+  揮臂速度: { 四縫線: [4700, 250], 曲球: [4400, 240], 滑球: [4500, 240], 變速球: [4650, 250] },
+  出手角度: { 四縫線: [42, 2.5], 曲球: [42.5, 2.5], 滑球: [42, 2.5], 變速球: [42, 2.5] },
+  手肘外翻應力: { 四縫線: [62, 5.0], 曲球: [56, 4.5], 滑球: [60, 5.0], 變速球: [61, 5.0] },
+  投球效率: { 四縫線: [2.0, 0.15], 曲球: [1.95, 0.15], 滑球: [1.95, 0.15], 變速球: [1.85, 0.15] },
+};
+
+/** 取得指定層級的 (avg, sd)，依 LEVEL_MULT 對 baseline 乘倍率 */
+const getLevelStats = (
+  table: Record<string, Record<string, [number, number] | undefined>>,
+  metricLabel: string,
+  pitchType: string,
+  level: LevelBaseline
+): [number, number] | null => {
+  const baseline = table[metricLabel]?.[pitchType];
+  if (!baseline) return null;
+  const mult = LEVEL_MULT[level];
+  return [baseline[0] * mult, baseline[1]];
+};
+
 const mockPitchMetrics: PitchTypeMetric[] = [
   { label: "球速", unit: "kph", values: { 四縫線: { value: 138.5, prevs: [135.2, 133.0] }, 曲球: { value: 118.3, prevs: [116.0, 114.5] }, 滑球: { value: 125.7, prevs: [123.5, 121.8] }, 變速球: { value: 122.1, prevs: [120.8, 119.5] } }, decimals: 1, dataSource: "Velo_Rapsodo" },
   { label: "旋轉方向", values: { 四縫線: { value: "12:15" }, 曲球: { value: "7:30" }, 滑球: { value: "9:45" }, 變速球: { value: "1:00" } }, dataSource: "SpinDirection" },
@@ -65,14 +116,20 @@ interface PitchTypeSectionProps {
   singlePitchType?: string;
   /** 學員 ID — 有值時使用該學員專屬 mock 數據 */
   studentId?: string;
+  /** 層級基準標籤（用於最後一欄「{levelLabel}平均 ± 0.5SD」），預設高中 */
+  levelLabel?: LevelBaseline;
 }
 
-const PitchTypeSection = ({ previousCount = 0, singlePitchType, studentId }: PitchTypeSectionProps) => {
+const PitchTypeSection = ({ previousCount = 0, singlePitchType, studentId, levelLabel = "高中" }: PitchTypeSectionProps) => {
   const displayTypes = singlePitchType ? [singlePitchType] : allPitchTypes;
   const isSingle = displayTypes.length === 1;
   const prevCols = Array.from({ length: Math.max(0, previousCount) }, (_, i) => i);
 
-  const renderTable = (title: string, metrics: PitchTypeMetric[]) => (
+  const renderTable = (
+    title: string,
+    metrics: PitchTypeMetric[],
+    baselineTable: Record<string, Record<string, [number, number] | undefined>>
+  ) => (
     <div className="mb-6">
       <h3 className="text-base font-semibold text-foreground mb-3">
         {title}
@@ -92,25 +149,26 @@ const PitchTypeSection = ({ previousCount = 0, singlePitchType, studentId }: Pit
                 <th
                   key={pt}
                   className="text-center py-2 px-3 font-medium text-muted-foreground"
-                  colSpan={1 + prevCols.length}
+                  colSpan={1 + prevCols.length + 1}
                 >
                   {isSingle ? displayTypes[0] : pt}
                 </th>
               ))}
             </tr>
-            {previousCount > 0 && (
-              <tr className="border-b border-border/50 bg-muted/20">
-                <th></th>
-                {displayTypes.flatMap((pt) => [
-                  <th key={`${pt}-cur-h`} className="text-center py-1 px-3 text-[10px] text-muted-foreground font-normal">當次</th>,
-                  ...prevCols.map((n) => (
-                    <th key={`${pt}-prev-h-${n}`} className="text-center py-1 px-3 text-[10px] text-muted-foreground font-normal">
-                      前 {n + 1} 次
-                    </th>
-                  )),
-                ])}
-              </tr>
-            )}
+            <tr className="border-b border-border/50 bg-muted/20">
+              <th></th>
+              {displayTypes.flatMap((pt) => [
+                <th key={`${pt}-cur-h`} className="text-center py-1 px-3 text-[10px] text-muted-foreground font-normal">當次</th>,
+                ...prevCols.map((n) => (
+                  <th key={`${pt}-prev-h-${n}`} className="text-center py-1 px-3 text-[10px] text-muted-foreground font-normal">
+                    前 {n + 1} 次
+                  </th>
+                )),
+                <th key={`${pt}-level-h`} className="text-center py-1 px-3 text-[10px] text-muted-foreground font-normal">
+                  {levelLabel}平均 ± 0.5SD
+                </th>,
+              ])}
+            </tr>
           </thead>
           <tbody>
             {metrics.map((row) => {
@@ -140,12 +198,21 @@ const PitchTypeSection = ({ previousCount = 0, singlePitchType, studentId }: Pit
                 </td>
                 {displayTypes.flatMap((pt) => {
                   const cell = row.values[pt];
+                  // 取得該球種、該指標的層級平均（mock）
+                  const stats = getLevelStats(baselineTable, row.label, pt, levelLabel);
+                  const levelCell = stats
+                    ? `${fmt(stats[0], row.decimals)} ± ${fmt(0.5 * stats[1], row.decimals)}`
+                    : "—";
+
                   if (!cell) {
                     return [
                       <td key={`${pt}-cur-${row.label}`} className="py-2 px-3 text-center">—</td>,
                       ...prevCols.map((n) => (
                         <td key={`${pt}-prev-${row.label}-${n}`} className="py-2 px-3 text-center">—</td>
                       )),
+                      <td key={`${pt}-level-${row.label}`} className="py-2 px-3 text-center text-muted-foreground text-xs">
+                        {levelCell}
+                      </td>,
                     ];
                   }
 
@@ -173,6 +240,9 @@ const PitchTypeSection = ({ previousCount = 0, singlePitchType, studentId }: Pit
                         {fmt(cell.prevs?.[n], row.decimals)}
                       </td>
                     )),
+                    <td key={`${pt}-level-${row.label}`} className="py-2 px-3 text-center text-muted-foreground text-xs">
+                      {levelCell}
+                    </td>,
                   ];
                 })}
               </tr>
@@ -189,8 +259,8 @@ const PitchTypeSection = ({ previousCount = 0, singlePitchType, studentId }: Pit
 
   return (
     <>
-      {renderTable("球種數據", pitchData)}
-      {renderTable("揮臂數據", armData)}
+      {renderTable("球種數據", pitchData, PITCH_BASELINE)}
+      {renderTable("揮臂數據", armData, ARM_BASELINE)}
     </>
   );
 };

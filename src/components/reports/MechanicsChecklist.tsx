@@ -27,21 +27,23 @@ export const battingMechanicsItems: MechanicsItem[] = [
 ];
 
 // 投球機制項目（26 項）
+// 注意：被標為 isGood: false 的項目中，至少 2 個對應到「多組罐頭文字」的查核點
+//   （KneeValgus/TrunkFlexion/MER 各有 2 組罐頭文字），確保 demo 看得到罐頭切換 UI
 export const pitchingMechanicsItems: MechanicsItem[] = [
   { id: "Drift", label: "未飄移", isGood: true },
-  { id: "KneeValgus", label: "膝蓋內外翻", isGood: true },
+  { id: "KneeValgus", label: "膝蓋內外翻", isGood: false }, // 2 組罐頭（demo）
   { id: "PushRubber", label: "推蹬", isGood: true },
   { id: "HipHinge_Pitching", label: "落下與髖絞鍊動作", isGood: true },
   { id: "LeadLegRatateEarly", label: "過早拉動骨盆旋轉", isGood: false },
   { id: "ClosedStep", label: "踩位過於關閉", isGood: true },
   { id: "OpenStep", label: "踩位過於開放", isGood: true },
   { id: "KneeDrifting", label: "前腳膝蓋穩定", isGood: true },
-  { id: "Stacking", label: "核心脫離中立位（軀幹層疊）", isGood: false },
+  { id: "Stacking", label: "核心脫離中立位（軀幹層疊）", isGood: true },
   { id: "HHS_Early_HP", label: "旋轉面肩髖分離時間點過早", isGood: true },
   { id: "NoHHS_HP", label: "旋轉面肩髖分離幅度不足", isGood: true },
-  { id: "HHS_Early_SP", label: "矢狀面肩髖分離時間點過早", isGood: false },
+  { id: "HHS_Early_SP", label: "矢狀面肩髖分離時間點過早", isGood: true },
   { id: "NoHHS_SP", label: "矢狀面肩髖分離幅度不足", isGood: true },
-  { id: "TrunkFlexion", label: "軀幹前壓幅度不足", isGood: true },
+  { id: "TrunkFlexion", label: "軀幹前壓幅度不足", isGood: false }, // 2 組罐頭（demo）
   { id: "TrunkDeceleration", label: "軀幹持續轉動", isGood: true },
   { id: "VerticalArmSwing", label: "垂直性提肘", isGood: true },
   { id: "ScapLoad", label: "投球手蓄力不足", isGood: false },
@@ -51,7 +53,7 @@ export const pitchingMechanicsItems: MechanicsItem[] = [
   { id: "Disconnect", label: "投球手後躺時跟不上軀幹", isGood: true },
   { id: "LeadElbow", label: "引導性手肘", isGood: true },
   { id: "SecondArmSpiral", label: "無二段螺旋手臂", isGood: false },
-  { id: "MER", label: "投球手後躺角度不足", isGood: true },
+  { id: "MER", label: "投球手後躺角度不足", isGood: false }, // 2 組罐頭（demo）
   { id: "GloveArmPullEarly", label: "過早拉動，導致軀幹旋轉時機太早", isGood: true },
   { id: "GloveArmPulling", label: "手套手持續拉動", isGood: true },
 ];

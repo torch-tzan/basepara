@@ -18,7 +18,6 @@ import MechanicsChecklist from "@/components/reports/MechanicsChecklist";
 import AdvancedMechanicsTable from "@/components/reports/AdvancedMechanicsTable";
 import { isAICoachReport } from "@/data/advancedMechanicsCheckpoints";
 import BattingDistributionChart from "@/components/reports/charts/BattingDistributionChart";
-import FitnessDistributionChart from "@/components/reports/charts/FitnessDistributionChart";
 import MechanicsExplanation from "@/components/reports/MechanicsExplanation";
 import VideoPlayer, { type VideoClip } from "@/components/reports/VideoPlayer";
 import { battingMechanicsItems, pitchingMechanicsItems } from "@/components/reports/MechanicsChecklist";
@@ -199,9 +198,6 @@ const ReportView = () => {
         <>
           <PlayerInfoHeader player={{ ...playerInfo, level: levelBaseline }} reportType={reportType} />
           <FitnessSection previousCount={compareCount} levelLabel={levelBaseline} showPR={true} studentId={report.student_id} />
-          <div className="mt-4">
-            <FitnessDistributionChart compact />
-          </div>
         </>
       ),
     });
@@ -250,7 +246,16 @@ const ReportView = () => {
   }
 
   if (isPitching && compareCount === 0 && hasSection("pitch")) {
-    pages.push({ key: "pitch-single", render: () => <PitchTypeSection previousCount={0} studentId={report.student_id} /> });
+    pages.push({
+      key: "pitch-single",
+      render: () => (
+        <PitchTypeSection
+          previousCount={0}
+          studentId={report.student_id}
+          levelLabel={levelBaseline as "國中" | "高中" | "大學" | "職業"}
+        />
+      ),
+    });
   }
 
   if (isPitching && showPitchPerTypePages && hasSection("pitch")) {
@@ -258,16 +263,21 @@ const ReportView = () => {
       pages.push({
         key: `pitch-compare-${pt}`,
         render: () => (
-          <PitchTypeSection previousCount={compareCount} singlePitchType={pt} studentId={report.student_id} />
+          <PitchTypeSection
+            previousCount={compareCount}
+            singlePitchType={pt}
+            studentId={report.student_id}
+            levelLabel={levelBaseline as "國中" | "高中" | "大學" | "職業"}
+          />
         ),
       });
     });
   }
 
   if (hasSection("mechanics")) {
-    // 使用 AI Coach 動態捕捉 → 進階查核點；否則 → 一般查核清單（26 項切兩段）
+    // 使用 AI Coach 動態捕捉 → 進階查核點；否則 → 一般查核清單（投球 26 項切 19/7，打擊 14 項單頁）
     const useAICoach = isAICoachReport(report.date);
-    const MECHANICS_PAGE_LIMIT = 14;
+    const MECHANICS_PAGE_LIMIT = 19;
     const mechanicsPage1 = mechanicsItems.slice(0, MECHANICS_PAGE_LIMIT);
     const mechanicsPage2 = useAICoach ? [] : mechanicsItems.slice(MECHANICS_PAGE_LIMIT);
 
@@ -284,7 +294,7 @@ const ReportView = () => {
         ),
     });
 
-    // 影片（列印時不顯示）— 投球超過 14 項時，溢位的項目與影片同頁
+    // 影片（列印時不顯示）— 投球超過 19 項時，溢位的項目與影片同頁
     pages.push({
       key: "mechanics-video",
       printHidden: mechanicsPage2.length === 0,

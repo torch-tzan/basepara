@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTeams } from "@/hooks/useSupabaseTeams";
 import { useAccounts } from "@/hooks/useSupabaseAccounts";
 import { useCreateStudentAccount } from "@/hooks/useCreateStudentAccount";
+import { teamLevelOptions, countyOptions } from "@/data/teamsConfig";
 import { Loader2 } from "lucide-react";
 
 
@@ -29,6 +30,8 @@ const AddStudentForm = ({ onSuccess }: AddStudentFormProps) => {
   const [birthday, setBirthday] = useState<Date>();
   const [positionType, setPositionType] = useState("");
   const [team, setTeam] = useState("");
+  const [level, setLevel] = useState("");
+  const [county, setCounty] = useState("");
   const [selectedCoaches, setSelectedCoaches] = useState<string[]>([]);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
 
@@ -38,6 +41,21 @@ const AddStudentForm = ({ onSuccess }: AddStudentFormProps) => {
   // Get team coaches based on selected team
   const selectedTeamData = teams.find((t) => t.id === team);
   const teamCoachIds = selectedTeamData?.coachIds || [];
+
+  // 切換球隊時：若使用者尚未指定層級/縣市，自動帶入該球隊的值
+  const handleTeamChange = (newTeamId: string) => {
+    setTeam(newTeamId);
+    const t = teams.find((x) => x.id === newTeamId);
+    if (!level && t?.level) {
+      setLevel(t.level);
+    }
+    const teamCounty = t
+      ? ((t as Record<string, unknown>).county as string | undefined)
+      : undefined;
+    if (!county && teamCounty) {
+      setCounty(teamCounty);
+    }
+  };
 
   // Get coach name by id
   const getCoachName = (coachId: string) => {
@@ -178,11 +196,32 @@ const AddStudentForm = ({ onSuccess }: AddStudentFormProps) => {
       <FormSelect
         label="所屬球隊"
         value={team}
-        onValueChange={setTeam}
+        onValueChange={handleTeamChange}
         placeholder={isLoading ? "載入中..." : "選擇所屬球隊"}
         options={teams.map((t) => ({ value: t.id, label: t.name }))}
         disabled={isSubmitting || isLoading}
       />
+
+      {/* 層級 + 縣市 (選球隊時自動帶入，可手動覆寫) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormSelect
+          label="層級"
+          value={level}
+          onValueChange={setLevel}
+          placeholder="選擇層級"
+          options={teamLevelOptions}
+          disabled={isSubmitting}
+        />
+        <FormSelect
+          label="縣市"
+          value={county}
+          onValueChange={setCounty}
+          placeholder="選擇縣市"
+          options={countyOptions}
+          description={team ? "選擇球隊時會自動帶入" : undefined}
+          disabled={isSubmitting}
+        />
+      </div>
 
       {/* 球隊教練 (自動帶入) */}
       {team && teamCoachIds.length > 0 && (

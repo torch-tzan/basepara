@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useStudents } from "@/contexts/StudentsContext";
 import { useTeams } from "@/contexts/TeamsContext";
-import { teamLevelOptions } from "@/data/teamsConfig";
+import { teamLevelOptions, countyOptions } from "@/data/teamsConfig";
 import { useAccounts } from "@/contexts/AccountsContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import {
@@ -110,6 +110,7 @@ const StudentForm = () => {
   const [battingHand, setBattingHand] = useState("");
   const [playerType, setPlayerType] = useState("");
   const [level, setLevel] = useState("");
+  const [county, setCounty] = useState("");
   // For new student mode only
   const [teamId, setTeamId] = useState("");
   const [responsibleCoaches, setResponsibleCoaches] = useState<string[]>([]);
@@ -225,6 +226,7 @@ const StudentForm = () => {
         setPosition(student.position);
         setPlayerType(student.playerType || "");
         setLevel(student.level || "");
+        setCounty(student.county || "");
         setThrowingHand(student.throwingHand || "");
         setBattingHand(student.battingHand || "");
         setTeamId(student.teamId);
@@ -240,7 +242,7 @@ const StudentForm = () => {
     if (isInitialized.current || !isEditing) {
       setIsDirty(true);
     }
-  }, [name, email, height, weight, birthday, position, throwingHand, battingHand, teamId, responsibleCoaches, isEditing]);
+  }, [name, email, height, weight, birthday, position, throwingHand, battingHand, level, county, teamId, responsibleCoaches, isEditing]);
 
   // Validate form
   const validateForm = (): boolean => {
@@ -307,6 +309,7 @@ const StudentForm = () => {
         throwingHand,
         battingHand,
         level: level || undefined,
+        county: county || undefined,
         teamId: isEditing ? (currentHistory?.team_id || teamId) : teamId,
         responsibleCoaches: isEditing 
           ? mapCoachIdsToNames(currentHistory?.responsibleCoachIds || [])
@@ -635,7 +638,7 @@ const StudentForm = () => {
                       <h2 className="text-lg font-medium text-foreground">基本資料</h2>
                       <FormField label="姓名" required placeholder="請輸入學員姓名" value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
                       <FormField label="信箱" required type="email" placeholder="example@email.com" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} description={!errors.email ? "此信箱將作為學員的登入帳號" : undefined} />
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                         <FormDatePicker label="生日" value={birthday} onChange={setBirthday} placeholder="選擇生日" disabled={(date) => date > new Date() || date < new Date("1990-01-01")} showYearDropdown fromYear={1990} toYear={new Date().getFullYear()} />
                         <FormField label="身高 (cm)" type="number" placeholder="例如：175" value={height} onChange={(e) => setHeight(e.target.value)} />
                         <FormField label="體重 (kg)" type="number" placeholder="例如：68" value={weight} onChange={(e) => setWeight(e.target.value)} />
@@ -645,6 +648,13 @@ const StudentForm = () => {
                           onValueChange={setLevel}
                           placeholder="選擇層級"
                           options={teamLevelOptions}
+                        />
+                        <FormSelect
+                          label="縣市"
+                          value={county}
+                          onValueChange={setCounty}
+                          placeholder="選擇縣市"
+                          options={countyOptions}
                         />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -890,16 +900,30 @@ const StudentForm = () => {
                 value={teamId}
                 onValueChange={(v) => {
                   setTeamId(v);
+                  const t = teams.find((x) => x.id === v);
                   // 切換球隊時若層級尚未手動指定，自動帶入該球隊層級
-                  if (!level) {
-                    const t = teams.find((x) => x.id === v);
-                    if (t?.level) setLevel(t.level);
+                  if (!level && t?.level) {
+                    setLevel(t.level);
+                  }
+                  // 切換球隊時若縣市尚未手動指定，自動帶入該球隊縣市
+                  if (!county && t?.county) {
+                    setCounty(t.county);
                   }
                 }}
                 placeholder="選擇所屬球隊"
                 options={teamOptions}
                 error={errors.teamId}
               />
+              {teamId && (
+                <FormSelect
+                  label="縣市"
+                  value={county}
+                  onValueChange={setCounty}
+                  placeholder="選擇縣市"
+                  options={countyOptions}
+                  description="選擇球隊時會自動帶入該球隊縣市，可手動覆寫"
+                />
+              )}
               {teamId && teamCoaches.length > 0 && (
                 <div className="space-y-2">
                   <Label>球隊教練</Label>

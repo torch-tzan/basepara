@@ -23,6 +23,10 @@ interface ComparisonTableProps {
   valuesB: ComparisonMetricValue[];
   labelA: string;
   labelB: string;
+  /** 是否顯示 PR 欄（A=個人 且 B=群體 才為 true） */
+  showPR?: boolean;
+  /** key → PR 值（0-100） */
+  prMap?: Map<string, number>;
 }
 
 // ═══════════════════════════════════════
@@ -79,6 +83,8 @@ const ComparisonTable = ({
   valuesB,
   labelA,
   labelB,
+  showPR = false,
+  prMap,
 }: ComparisonTableProps) => {
   const mapA = new Map(valuesA.map((v) => [v.key, v]));
   const mapB = new Map(valuesB.map((v) => [v.key, v]));
@@ -102,6 +108,11 @@ const ComparisonTable = ({
               <th className="text-center py-2 px-3 font-medium text-muted-foreground w-[15%]">
                 差異
               </th>
+              {showPR && (
+                <th className="text-center py-2 px-3 font-medium text-muted-foreground w-[10%]">
+                  PR
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -155,6 +166,13 @@ const ComparisonTable = ({
                       ? `${diff > 0 ? "+" : ""}${fmt(diff, m.decimals)}`
                       : "—"}
                   </td>
+
+                  {/* PR 欄（個人 vs 群體） */}
+                  {showPR && (
+                    <td className="py-2 px-3 text-center font-medium tabular-nums">
+                      {prMap?.has(m.key) ? prMap.get(m.key) : "—"}
+                    </td>
+                  )}
                 </tr>
               );
             })}

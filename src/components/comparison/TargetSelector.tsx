@@ -9,6 +9,9 @@ import { teamLevelOptions, countyOptions } from "@/data/teamsConfig";
 // ═══════════════════════════════════════
 export type TargetType = "individual" | "school" | "level" | "county";
 
+/** 性別篩選值：male / female / all（不依性別篩） */
+export type GenderFilter = "male" | "female" | "all";
+
 export interface ComparisonTarget {
   type: TargetType;
   /** student ID / team ID / level value / county value */
@@ -21,6 +24,11 @@ export interface ComparisonTarget {
    *   = 篩選「新北市的高中甲組」
    */
   secondary?: { type: "level" | "county"; id: string };
+  /**
+   * 性別篩選：適用於非個人目標（學校/層級/縣市），用以篩選母體。
+   * 預設為 "male"；個人目標不使用此欄位。
+   */
+  gender?: GenderFilter;
 }
 
 const targetTypeOptions: FormSelectOption[] = [
@@ -28,6 +36,12 @@ const targetTypeOptions: FormSelectOption[] = [
   { value: "school", label: "學校" },
   { value: "level", label: "層級" },
   { value: "county", label: "縣市" },
+];
+
+const genderOptions: FormSelectOption[] = [
+  { value: "male", label: "男" },
+  { value: "female", label: "女" },
+  { value: "all", label: "全部（不篩選）" },
 ];
 
 // ═══════════════════════════════════════
@@ -104,7 +118,14 @@ const TargetSelector = ({ side, target, onChange }: TargetSelectorProps) => {
   };
 
   const handleTypeChange = (newType: string) => {
-    onChange({ type: newType as TargetType, id: "", label: "" });
+    // 切換到非個人時，預設 gender = "male"（user instruction：所有性別欄位預設男性）
+    const isNonIndividual = newType !== "individual";
+    onChange({
+      type: newType as TargetType,
+      id: "",
+      label: "",
+      gender: isNonIndividual ? "male" : undefined,
+    });
   };
 
   const handleValueChange = (newId: string) => {
@@ -114,6 +135,7 @@ const TargetSelector = ({ side, target, onChange }: TargetSelectorProps) => {
       id: newId,
       label: findLabel(target.type, newId),
       secondary: target.secondary,
+      gender: target.gender,
     });
   };
 
@@ -135,6 +157,16 @@ const TargetSelector = ({ side, target, onChange }: TargetSelectorProps) => {
     onChange({
       ...target,
       secondary: isNone ? undefined : { type: secondaryType, id: val },
+    });
+  };
+
+  // 性別篩選：適用於非個人目標（學校/層級/縣市）
+  const supportsGender = !!target?.type && target.type !== "individual";
+  const handleGenderChange = (val: string) => {
+    if (!target) return;
+    onChange({
+      ...target,
+      gender: val as GenderFilter,
     });
   };
 
@@ -163,6 +195,15 @@ const TargetSelector = ({ side, target, onChange }: TargetSelectorProps) => {
           onValueChange={handleSecondaryChange}
           options={secondaryOptions}
           placeholder="選填"
+        />
+      )}
+      {supportsGender && (
+        <FormSelect
+          label="性別"
+          value={target?.gender || "male"}
+          onValueChange={handleGenderChange}
+          options={genderOptions}
+          placeholder="選擇性別"
         />
       )}
     </div>

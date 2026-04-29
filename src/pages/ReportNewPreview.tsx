@@ -28,7 +28,6 @@ import MechanicsChecklist, {
 import AdvancedMechanicsTable from "@/components/reports/AdvancedMechanicsTable";
 import { isAICoachReport } from "@/data/advancedMechanicsCheckpoints";
 import BattingDistributionChart from "@/components/reports/charts/BattingDistributionChart";
-import FitnessDistributionChart from "@/components/reports/charts/FitnessDistributionChart";
 import MechanicsExplanation from "@/components/reports/MechanicsExplanation";
 import VideoPlayer, { type VideoClip } from "@/components/reports/VideoPlayer";
 import ChartModuleCard from "@/components/reports/ChartModuleCard";
@@ -202,22 +201,25 @@ const ReportNewPreview = () => {
   type Page = { key: string; content: React.ReactNode; printHidden?: boolean };
   const pages: Page[] = [];
 
-  // 1. 選手個資 + 身體素質（底部加可切換的分布圖）
-  pages.push({
-    key: "fitness",
-    content: (
-      <>
-        <PlayerInfoHeader player={playerInfo} reportType={draft.reportType} />
-        <FitnessSection previousCount={draft.compareCount} levelLabel={draft.levelBaseline} showPR={true} studentId={draft.selectedStudentId} />
-        <div className="mt-4">
-          <FitnessDistributionChart compact />
-        </div>
-      </>
-    ),
-  });
+  // ── 跳過邏輯：與 ReportView 的 hasSection() 一致，依 draft.excludedSections 跳過固定區塊 ──
+  const excludedSet = new Set(draft.excludedSections ?? []);
+  const hasSection = (key: string) => !excludedSet.has(key);
+
+  // 1. 選手個資 + 身體素質
+  if (hasSection("fitness")) {
+    pages.push({
+      key: "fitness",
+      content: (
+        <>
+          <PlayerInfoHeader player={playerInfo} reportType={draft.reportType} />
+          <FitnessSection previousCount={draft.compareCount} levelLabel={draft.levelBaseline} showPR={true} studentId={draft.selectedStudentId} />
+        </>
+      ),
+    });
+  }
 
   // 2. 投球：活動度 + 危險因子
-  if (isPitching) {
+  if (isPitching && hasSection("mobility")) {
     pages.push({
       key: "mobility",
       content: (
@@ -230,7 +232,7 @@ const ReportNewPreview = () => {
   }
 
   // 3. 打擊：揮棒 + 擊球（每頁底部加 2 個分布圖以對應 pptx 規格）
-  if (isBatting) {
+  if (isBatting && hasSection("swing")) {
     pages.push({
       key: "swing",
       content: (
@@ -249,6 +251,8 @@ const ReportNewPreview = () => {
         </div>
       ),
     });
+  }
+  if (isBatting && hasSection("hitting")) {
     pages.push({
       key: "hitting",
       content: (
@@ -270,68 +274,86 @@ const ReportNewPreview = () => {
   }
 
   // 4. 投球：球種
-  if (isPitching && draft.compareCount === 0) {
-    pages.push({ key: "pitch-single", content: <PitchTypeSection previousCount={0} studentId={draft.selectedStudentId} /> });
+  if (isPitching && draft.compareCount === 0 && hasSection("pitch")) {
+    pages.push({
+      key: "pitch-single",
+      content: (
+        <PitchTypeSection
+          previousCount={0}
+          studentId={draft.selectedStudentId}
+          levelLabel={draft.levelBaseline as "國中" | "高中" | "大學" | "職業"}
+        />
+      ),
+    });
   }
-  if (isPitching && draft.compareCount >= 1) {
+  if (isPitching && draft.compareCount >= 1 && hasSection("pitch")) {
     allPitchTypes.forEach((pt) => {
       pages.push({
         key: `pitch-${pt}`,
-        content: <PitchTypeSection previousCount={draft.compareCount} singlePitchType={pt} studentId={draft.selectedStudentId} />,
+        content: (
+          <PitchTypeSection
+            previousCount={draft.compareCount}
+            singlePitchType={pt}
+            studentId={draft.selectedStudentId}
+            levelLabel={draft.levelBaseline as "國中" | "高中" | "大學" | "職業"}
+          />
+        ),
       });
     });
   }
 
   // 5. 機制查核
   // - 使用 AI Coach 動態捕捉 → 顯示進階查核點表格（單頁，項目少）
-  // - 否則 → 顯示一般查核清單（投球 26 項會破版，切成 14 + 12 兩段）
+  // - 否則 → 顯示一般查核清單（投球 26 項會破版，切成 19 + 7 兩段）
   const useAICoach = isAICoachReport(draft.testDate);
-  const MECHANICS_PAGE_LIMIT = 14;
+  const MECHANICS_PAGE_LIMIT = 19;
   const mechanicsAllItems = isBatting ? battingMechanicsItems : pitchingMechanicsItems;
   const mechanicsPage1 = mechanicsAllItems.slice(0, MECHANICS_PAGE_LIMIT);
   const mechanicsPage2 = useAICoach ? [] : mechanicsAllItems.slice(MECHANICS_PAGE_LIMIT);
 
-  pages.push({
-    key: "mechanics",
-    content: useAICoach ? (
-      <AdvancedMechanicsTable type={isBatting ? "batting" : "pitching"} />
-    ) : (
-      <MechanicsChecklist
-        type={isBatting ? "batting" : "pitching"}
-        items={mechanicsPage1}
-      />
-    ),
-  });
+  if (hasSection("mechanics")) {
+    pages.push({
+      key: "mechanics",
+      content: useAICoach ? (
+        <AdvancedMechanicsTable type={isBatting ? "batting" : "pitching"} />
+      ) : (
+        <MechanicsChecklist
+          type={isBatting ? "batting" : "pitching"}
+          items={mechanicsPage1}
+        />
+      ),
+    });
 
-  // 5b. 影片（列印時不顯示）— 投球超過 14 項時，溢位的項目與影片同頁
-  pages.push({
-    key: "mechanics-video",
-    // 有溢位清單 → 整頁要印；沒有 → 保持 printHidden
-    printHidden: mechanicsPage2.length === 0,
-    content: (
-      <div className="space-y-6">
-        {mechanicsPage2.length > 0 && (
-          <MechanicsChecklist
-            type={isBatting ? "batting" : "pitching"}
-            items={mechanicsPage2}
-            title={`${isBatting ? "打擊" : "投球"}動作機制查核（續）`}
-          />
-        )}
-        <div className="space-y-4 print:hidden">
-          <h3 className="text-base font-semibold text-foreground">檢測影片</h3>
-          <VideoPlayer
-            type={isBatting ? "batting" : "pitching"}
-            clips={videoClips}
-            date={draft.testDate}
-          />
+    // 5b. 影片（列印時不顯示）— 投球超過 19 項時，溢位的項目與影片同頁
+    pages.push({
+      key: "mechanics-video",
+      // 有溢位清單 → 整頁要印；沒有 → 保持 printHidden
+      printHidden: mechanicsPage2.length === 0,
+      content: (
+        <div className="space-y-6">
+          {mechanicsPage2.length > 0 && (
+            <MechanicsChecklist
+              type={isBatting ? "batting" : "pitching"}
+              items={mechanicsPage2}
+              title={`${isBatting ? "打擊" : "投球"}動作機制查核（續）`}
+            />
+          )}
+          <div className="space-y-4 print:hidden">
+            <h3 className="text-base font-semibold text-foreground">檢測影片</h3>
+            <VideoPlayer
+              type={isBatting ? "batting" : "pitching"}
+              clips={videoClips}
+              date={draft.testDate}
+            />
+          </div>
         </div>
-      </div>
-    ),
-  });
+      ),
+    });
+  }
 
   // 6. 機制說明 + 教練回覆（可編輯）— 僅完整版（人為上傳）顯示；
   //    AI Coach 簡易版只標記「好/差」，不需要罐頭文字說明
-  if (!useAICoach) {
+  if (hasSection("mechanics") && !useAICoach) {
     pages.push({
       key: "mechanics-explain",
       content: (
@@ -344,7 +366,7 @@ const ReportNewPreview = () => {
         </div>
       ),
     });
-  } else if (personalAdvice) {
+  } else if (hasSection("mechanics") && personalAdvice) {
     // AI Coach 模式仍可保留教練回覆區塊（如果有寫的話）— 顯示 readOnly 即可
     pages.push({
       key: "coach-advice",

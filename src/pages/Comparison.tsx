@@ -4,7 +4,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FormSelect } from "@/components/ui/form-select";
-import TargetSelector, { type ComparisonTarget } from "@/components/comparison/TargetSelector";
+import TargetSelector, { type ComparisonTarget, type Sport } from "@/components/comparison/TargetSelector";
 import ComparisonTable from "@/components/comparison/ComparisonTable";
 import ComparisonPitchTable from "@/components/comparison/ComparisonPitchTable";
 import { useComparisonData } from "@/hooks/useComparisonData";
@@ -23,6 +23,11 @@ const comparisonTypeOptions = [
   { value: "身體素質", label: "身體素質" },
 ];
 
+const sportOptions = [
+  { value: "baseball", label: "棒球" },
+  { value: "softball", label: "壘球" },
+];
+
 const testMethodOptions = [
   { value: "實戰", label: "實戰" },
   { value: "發球機", label: "發球機" },
@@ -31,12 +36,25 @@ const testMethodOptions = [
 const pitchTypeOptions = allPitchTypes.map((pt) => ({ value: pt, label: pt }));
 
 const Comparison = () => {
+  /** 運動類別：棒球（預設）/ 壘球；切換時 reset 兩邊 target 的層級/縣市選擇 */
+  const [sport, setSport] = useState<Sport>("baseball");
   const [targetA, setTargetA] = useState<ComparisonTarget | null>(null);
   const [targetB, setTargetB] = useState<ComparisonTarget | null>(null);
   const [comparisonType, setComparisonType] = useState<ComparisonType>("打擊");
   const [pitchType, setPitchType] = useState("四縫線");
   const [_testMethod, setTestMethod] = useState("實戰");
   const [showResults, setShowResults] = useState(false);
+
+  /**
+   * 切運動類別時 reset 兩邊 target — 因為層級／學校／縣市可選清單在棒球與壘球之間
+   * 不對稱（如「高中甲組」在壘球不存在），保留前次選值會誤導。
+   */
+  const handleSportChange = (val: string) => {
+    setSport(val as Sport);
+    setTargetA(null);
+    setTargetB(null);
+    setShowResults(false);
+  };
 
   const { valuesA, valuesB, pitchValuesA, pitchValuesB, showPR, prMap, isReady } =
     useComparisonData({
@@ -198,15 +216,27 @@ const Comparison = () => {
         {/* ── 選擇面板 ── */}
         <Card className="print:hidden">
           <CardContent className="pt-6 space-y-6">
+            {/* 運動類別 — 影響層級可選清單（棒球 9 種 / 壘球 2 種） */}
+            <div className="w-40">
+              <FormSelect
+                label="運動類別"
+                value={sport}
+                onValueChange={handleSportChange}
+                options={sportOptions}
+              />
+            </div>
+
             {/* A vs B 選擇器 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <TargetSelector
                 side="A"
+                sport={sport}
                 target={targetA}
                 onChange={(t) => { setTargetA(t); setShowResults(false); }}
               />
               <TargetSelector
                 side="B"
+                sport={sport}
                 target={targetB}
                 onChange={(t) => { setTargetB(t); setShowResults(false); }}
               />

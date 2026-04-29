@@ -13,6 +13,47 @@ export const teamAttributeOptions = [
   { value: "壘球", label: "壘球" },
 ];
 
+// 球隊屬性鍵 → 中文標籤的對應（給內部判斷用）
+export const TEAM_ATTRIBUTE_BASEBALL = "棒球";
+export const TEAM_ATTRIBUTE_SOFTBALL = "壘球";
+
+// 由屬性決定的層級選項 — 棒球 9 種、壘球 2 種
+export const LEVEL_OPTIONS_BY_ATTRIBUTE = {
+  baseball: [
+    "職業",
+    "成棒",
+    "大專甲組",
+    "大專乙組",
+    "高中甲組",
+    "高中乙組",
+    "國中甲組",
+    "國中乙組",
+    "國小",
+  ],
+  softball: ["慢速壘球", "快速壘球"],
+} as const;
+
+// 向後相容：原 LEVEL_OPTIONS 為棒球層級
+export const LEVEL_OPTIONS = LEVEL_OPTIONS_BY_ATTRIBUTE.baseball;
+
+// 將屬性中文（"棒球" / "壘球"）轉成對應的層級陣列
+export const getLevelOptionsByAttribute = (
+  attribute?: string
+): readonly string[] => {
+  if (attribute === TEAM_ATTRIBUTE_SOFTBALL || attribute === "softball") {
+    return LEVEL_OPTIONS_BY_ATTRIBUTE.softball;
+  }
+  // 預設（含 "棒球" / "baseball" / 未指定）回傳棒球層級
+  return LEVEL_OPTIONS_BY_ATTRIBUTE.baseball;
+};
+
+// 將屬性中文轉成對應的層級「下拉選項」（FormSelect 用）
+export const getTeamLevelOptionsByAttribute = (
+  attribute?: string
+): { value: string; label: string }[] => {
+  return getLevelOptionsByAttribute(attribute).map((v) => ({ value: v, label: v }));
+};
+
 // 縣市選項
 export const countyOptions = [
   { value: "臺北市", label: "臺北市" },

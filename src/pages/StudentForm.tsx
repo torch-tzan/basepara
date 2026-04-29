@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useStudents } from "@/contexts/StudentsContext";
 import { useTeams } from "@/contexts/TeamsContext";
-import { teamLevelOptions, countyOptions } from "@/data/teamsConfig";
+import { countyOptions } from "@/data/teamsConfig";
 import { useAccounts } from "@/contexts/AccountsContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import {
@@ -109,7 +109,7 @@ const StudentForm = () => {
   const [throwingHand, setThrowingHand] = useState("");
   const [battingHand, setBattingHand] = useState("");
   const [playerType, setPlayerType] = useState("");
-  const [level, setLevel] = useState("");
+  const [gender, setGender] = useState<"male" | "female">("male");
   const [county, setCounty] = useState("");
   // For new student mode only
   const [teamId, setTeamId] = useState("");
@@ -225,7 +225,7 @@ const StudentForm = () => {
         }
         setPosition(student.position);
         setPlayerType(student.playerType || "");
-        setLevel(student.level || "");
+        setGender(student.gender || "male");
         setCounty(student.county || "");
         setThrowingHand(student.throwingHand || "");
         setBattingHand(student.battingHand || "");
@@ -242,7 +242,7 @@ const StudentForm = () => {
     if (isInitialized.current || !isEditing) {
       setIsDirty(true);
     }
-  }, [name, email, height, weight, birthday, position, throwingHand, battingHand, level, county, teamId, responsibleCoaches, isEditing]);
+  }, [name, email, height, weight, birthday, position, throwingHand, battingHand, gender, county, teamId, responsibleCoaches, isEditing]);
 
   // Validate form
   const validateForm = (): boolean => {
@@ -308,10 +308,11 @@ const StudentForm = () => {
         playerType,
         throwingHand,
         battingHand,
-        level: level || undefined,
+        // 層級完全跟球隊走 — 不再傳獨立 level
         county: county || undefined,
+        gender,
         teamId: isEditing ? (currentHistory?.team_id || teamId) : teamId,
-        responsibleCoaches: isEditing 
+        responsibleCoaches: isEditing
           ? mapCoachIdsToNames(currentHistory?.responsibleCoachIds || [])
           : mapCoachIdsToNames(responsibleCoaches),
       };
@@ -643,11 +644,14 @@ const StudentForm = () => {
                         <FormField label="身高 (cm)" type="number" placeholder="例如：175" value={height} onChange={(e) => setHeight(e.target.value)} />
                         <FormField label="體重 (kg)" type="number" placeholder="例如：68" value={weight} onChange={(e) => setWeight(e.target.value)} />
                         <FormSelect
-                          label="層級"
-                          value={level}
-                          onValueChange={setLevel}
-                          placeholder="選擇層級"
-                          options={teamLevelOptions}
+                          label="性別"
+                          value={gender}
+                          onValueChange={(v) => setGender(v as "male" | "female")}
+                          placeholder="選擇性別"
+                          options={[
+                            { value: "male", label: "男" },
+                            { value: "female", label: "女" },
+                          ]}
                         />
                         <FormSelect
                           label="縣市"
@@ -875,13 +879,16 @@ const StudentForm = () => {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <FormDatePicker label="生日" value={birthday} onChange={setBirthday} placeholder="選擇生日" disabled={(date) => date > new Date() || date < new Date("1990-01-01")} showYearDropdown fromYear={1990} toYear={new Date().getFullYear()} />
                 <FormField label="身高 (cm)" type="number" placeholder="例如：175" value={height} onChange={(e) => setHeight(e.target.value)} />
-                <FormField label="體重 (kg)" type="number" placeholder="例如：68" value={weight} onChange={(e) => setWeight(e.target.value)} />
+                <FormField label="體重 (kg)" type="number" placeholder="例如:68" value={weight} onChange={(e) => setWeight(e.target.value)} />
                 <FormSelect
-                  label="層級"
-                  value={level}
-                  onValueChange={setLevel}
-                  placeholder="選擇層級"
-                  options={teamLevelOptions}
+                  label="性別"
+                  value={gender}
+                  onValueChange={(v) => setGender(v as "male" | "female")}
+                  placeholder="選擇性別"
+                  options={[
+                    { value: "male", label: "男" },
+                    { value: "female", label: "女" },
+                  ]}
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -901,10 +908,7 @@ const StudentForm = () => {
                 onValueChange={(v) => {
                   setTeamId(v);
                   const t = teams.find((x) => x.id === v);
-                  // 切換球隊時若層級尚未手動指定，自動帶入該球隊層級
-                  if (!level && t?.level) {
-                    setLevel(t.level);
-                  }
+                  // 層級完全跟球隊走，由 StudentsContext derive
                   // 切換球隊時若縣市尚未手動指定，自動帶入該球隊縣市
                   if (!county && t?.county) {
                     setCounty(t.county);

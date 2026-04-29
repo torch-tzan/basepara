@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTeams } from "@/hooks/useSupabaseTeams";
 import { useAccounts } from "@/hooks/useSupabaseAccounts";
 import { useCreateStudentAccount } from "@/hooks/useCreateStudentAccount";
-import { teamLevelOptions, countyOptions } from "@/data/teamsConfig";
+import { countyOptions } from "@/data/teamsConfig";
 import { Loader2 } from "lucide-react";
 
 
@@ -30,7 +30,7 @@ const AddStudentForm = ({ onSuccess }: AddStudentFormProps) => {
   const [birthday, setBirthday] = useState<Date>();
   const [positionType, setPositionType] = useState("");
   const [team, setTeam] = useState("");
-  const [level, setLevel] = useState("");
+  const [gender, setGender] = useState<"male" | "female">("male");
   const [county, setCounty] = useState("");
   const [selectedCoaches, setSelectedCoaches] = useState<string[]>([]);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
@@ -42,13 +42,10 @@ const AddStudentForm = ({ onSuccess }: AddStudentFormProps) => {
   const selectedTeamData = teams.find((t) => t.id === team);
   const teamCoachIds = selectedTeamData?.coachIds || [];
 
-  // 切換球隊時：若使用者尚未指定層級/縣市，自動帶入該球隊的值
+  // 切換球隊時：層級完全跟球隊走（由顯示端 derive），僅自動帶縣市
   const handleTeamChange = (newTeamId: string) => {
     setTeam(newTeamId);
     const t = teams.find((x) => x.id === newTeamId);
-    if (!level && t?.level) {
-      setLevel(t.level);
-    }
     const teamCounty = t
       ? ((t as Record<string, unknown>).county as string | undefined)
       : undefined;
@@ -202,14 +199,17 @@ const AddStudentForm = ({ onSuccess }: AddStudentFormProps) => {
         disabled={isSubmitting || isLoading}
       />
 
-      {/* 層級 + 縣市 (選球隊時自動帶入，可手動覆寫) */}
+      {/* 性別 + 縣市 (選球隊時自動帶縣市，可手動覆寫) — 層級已改為跟球隊走 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormSelect
-          label="層級"
-          value={level}
-          onValueChange={setLevel}
-          placeholder="選擇層級"
-          options={teamLevelOptions}
+          label="性別"
+          value={gender}
+          onValueChange={(v) => setGender(v as "male" | "female")}
+          placeholder="選擇性別"
+          options={[
+            { value: "male", label: "男" },
+            { value: "female", label: "女" },
+          ]}
           disabled={isSubmitting}
         />
         <FormSelect

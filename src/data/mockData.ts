@@ -23,6 +23,8 @@ export interface StudentData {
   name: string;
   teamId: string;
   teamName: string;
+  /** 性別（必填，預設 male） */
+  gender: "male" | "female";
   position: string;
   height: string;
   weight: string;

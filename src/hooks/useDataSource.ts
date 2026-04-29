@@ -11,7 +11,7 @@
  */
 
 import { useMemo } from "react";
-import { useUser } from "@/contexts/UserContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useAccounts } from "@/contexts/AccountsContext";
 import type { DataSource, DataSourceMeta } from "@/types/dataSource";
 
@@ -25,19 +25,18 @@ interface UseDataSourceResult {
 }
 
 export const useDataSource = (): UseDataSourceResult => {
-  const { currentUser } = useUser();
+  const { authUser } = useAuth();
   const { getRoleById } = useAccounts();
 
   return useMemo<UseDataSourceResult>(() => {
     // 取得使用者角色設定（資料來源：AccountsContext）
-    const role = currentUser ? getRoleById(currentUser.role) : null;
+    const role = authUser?.role ? getRoleById(authUser.role) : null;
 
-    // 預設規則 fallback（待整合 RolesContext 完整化前）：
+    // 預設規則 fallback（DB 角色尚未顯式設定 includeInLevelComparison 時）：
     //   admin / venue_coach → internal
     //   其他角色（含 team_coach、student）→ external
-    // 若 RoleData 上有顯式設定 includeInLevelComparison，以該值為準
     const fallbackInternal =
-      currentUser?.role === "admin" || currentUser?.role === "venue_coach";
+      authUser?.role === "admin" || authUser?.role === "venue_coach";
 
     const isInternal = role?.includeInLevelComparison ?? fallbackInternal;
     const dataSource: DataSource = isInternal ? "internal" : "external";
@@ -47,10 +46,10 @@ export const useDataSource = (): UseDataSourceResult => {
       isInternal,
       meta: {
         dataSource,
-        uploadedBy: currentUser?.id,
-        uploadedByRole: currentUser?.role,
+        uploadedBy: authUser?.id,
+        uploadedByRole: authUser?.role ?? undefined,
         uploadedAt: new Date().toISOString(),
       },
     };
-  }, [currentUser, getRoleById]);
+  }, [authUser, getRoleById]);
 };

@@ -25,6 +25,10 @@ interface ComparisonPitchTableProps {
   labelA: string;
   labelB: string;
   pitchType: string;
+  /** 是否顯示 PR 欄（A=個人 且 B=群體 才為 true） */
+  showPR?: boolean;
+  /** key → PR 值（0-100） */
+  prMap?: Map<string, number>;
 }
 
 // ═══════════════════════════════════════
@@ -78,6 +82,8 @@ const ComparisonPitchTable = ({
   labelA,
   labelB,
   pitchType,
+  showPR = false,
+  prMap,
 }: ComparisonPitchTableProps) => {
   const mapA = new Map(valuesA.map((v) => [v.key, v]));
   const mapB = new Map(valuesB.map((v) => [v.key, v]));
@@ -104,6 +110,11 @@ const ComparisonPitchTable = ({
               <th className="text-center py-2 px-3 font-medium text-muted-foreground w-[15%]">
                 差異
               </th>
+              {showPR && (
+                <th className="text-center py-2 px-3 font-medium text-muted-foreground w-[10%]">
+                  PR
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -150,6 +161,11 @@ const ComparisonPitchTable = ({
                       ? `${diff > 0 ? "+" : ""}${fmt(diff, m.decimals)}`
                       : "—"}
                   </td>
+                  {showPR && (
+                    <td className="py-2 px-3 text-center font-medium tabular-nums">
+                      {prMap?.has(m.key) ? prMap.get(m.key) : "—"}
+                    </td>
+                  )}
                 </tr>
               );
             })}

@@ -9,6 +9,7 @@ import {
   getHittingMetrics,
   getPitchMetrics,
   getArmMetrics,
+  type MetricDefinition,
 } from "@/data/metricDefinitions";
 
 // ═══════════════════════════════════════
@@ -170,7 +171,34 @@ interface ComparisonDataResult {
   /** 投球指標值（依選定球種） */
   pitchValuesA: ComparisonPitchValue[];
   pitchValuesB: ComparisonPitchValue[];
+  /**
+   * 是否要顯示 PR 欄（A=個人 且 B=群體 時 true）。
+   * 若 true，則 valuesA / pitchValuesA 內的每筆有額外計算的 pr 欄位。
+   */
+  showPR: boolean;
+  /** 個人在群體中的 PR 值（key → 0~100 整數）；非「個人 vs 群體」情境為空 Map */
+  prMap: Map<string, number>;
   isReady: boolean;
+}
+
+/**
+ * 計算個人值 vs 群體分布的百分位（PR 0-100）。
+ * 用常態分布近似：pr = 50 + 50 * (value - mean) / (2 * sd) * sign
+ * - reversed 指標（越低越好）：sign = -1
+ * - 一般指標：sign = +1
+ */
+function calcPR(
+  individual: number | string | null | undefined,
+  groupMean: number | string | null | undefined,
+  groupSd: number | null | undefined,
+  reversed?: boolean
+): number | null {
+  if (individual == null || groupMean == null) return null;
+  if (typeof individual === "string" || typeof groupMean === "string") return null;
+  if (!groupSd || groupSd <= 0) return null;
+  const sign = reversed ? -1 : 1;
+  const pr = 50 + (50 * (individual - groupMean) / (2 * groupSd)) * sign;
+  return Math.max(0, Math.min(100, Math.round(pr)));
 }
 
 export const useComparisonData = ({
@@ -185,6 +213,8 @@ export const useComparisonData = ({
       valuesB: [],
       pitchValuesA: [],
       pitchValuesB: [],
+      showPR: false,
+      prMap: new Map(),
       isReady: false,
     };
 
@@ -193,49 +223,102 @@ export const useComparisonData = ({
     const isAAggregate = targetA.type !== "individual";
     const isBAggregate = targetB.type !== "individual";
 
-    // 把 secondary filter 併入 seed，讓不同篩選組合產出不同數據
-    const seedA = `${targetA.id}|${targetA.secondary?.id || ""}`;
-    const seedB = `${targetB.id}|${targetB.secondary?.id || ""}`;
+    // 把 secondary filter 與性別併入 seed，讓不同篩選組合產出不同數據
+    // （個人目標不套用性別篩選；群體目標預設 male）
+    const genderA = isAAggregate ? targetA.gender || "male" : "";
+    const genderB = isBAggregate ? targetB.gender || "male" : "";
+    const seedA = `${targetA.id}|${targetA.secondary?.id || ""}|${genderA}`;
+    const seedB = `${targetB.id}|${targetB.secondary?.id || ""}|${genderB}`;
+
+    // PR 顯示條件：A 必須為個人、B 必須為群體
+    const showPR = !isAAggregate && isBAggregate;
+
+    /** 由 metric definitions list 建立 key→reversed map，用於 PR 計算方向 */
+    const buildReversedMap = (defs: MetricDefinition[]): Map<string, boolean> => {
+      const m = new Map<string, boolean>();
+      defs.forEach((d) => m.set(d.key, !!d.reversed));
+      return m;
+    };
 
     if (comparisonType === "投球") {
       // 投球：pitch + arm metrics
-      const pitchKeys = getPitchMetrics().map((m) => m.key);
-      const armKeys = getArmMetrics().map((m) => m.key);
-      const allKeys = [...pitchKeys, ...armKeys];
+      const pitchDefs = [...getPitchMetrics(), ...getArmMetrics()];
+      const allKeys = pitchDefs.map((m) => m.key);
+      const reversedMap = buildReversedMap(pitchDefs);
+
+      const pitchValuesA = generatePitchValues(seedA, pitchType, allKeys, isAAggregate);
+      const pitchValuesB = generatePitchValues(seedB, pitchType, allKeys, isBAggregate);
+
+      const prMap = new Map<string, number>();
+      if (showPR) {
+        const bMap = new Map(pitchValuesB.map((v) => [v.key, v]));
+        pitchValuesA.forEach((a) => {
+          const b = bMap.get(a.key);
+          const pr = calcPR(a.value, b?.value, b?.sd, reversedMap.get(a.key));
+          if (pr != null) prMap.set(a.key, pr);
+        });
+      }
 
       return {
         valuesA: [],
         valuesB: [],
-        pitchValuesA: generatePitchValues(seedA, pitchType, allKeys, isAAggregate),
-        pitchValuesB: generatePitchValues(seedB, pitchType, allKeys, isBAggregate),
+        pitchValuesA,
+        pitchValuesB,
+        showPR,
+        prMap,
         isReady: true,
       };
     }
 
     // 身體素質 / 打擊：一般 metrics
-    let keys: string[] = [];
+    let defs: MetricDefinition[] = [];
     if (comparisonType === "身體素質") {
-      keys = getFitnessMetrics().map((m) => m.key);
+      defs = getFitnessMetrics();
     } else {
       // 打擊 = swing + hitting
-      keys = [
-        ...getSwingMetrics().map((m) => m.key),
-        ...getHittingMetrics().map((m) => m.key),
-      ];
+      defs = [...getSwingMetrics(), ...getHittingMetrics()];
+    }
+    const keys = defs.map((m) => m.key);
+    const reversedMap = buildReversedMap(defs);
+
+    const valuesA = isAAggregate
+      ? generateAggregateValues(seedA, keys)
+      : generateIndividualValues(keys);
+    const valuesB = isBAggregate
+      ? generateAggregateValues(seedB, keys)
+      : generateIndividualValues(keys);
+
+    const prMap = new Map<string, number>();
+    if (showPR) {
+      const bMap = new Map(valuesB.map((v) => [v.key, v]));
+      valuesA.forEach((a) => {
+        const b = bMap.get(a.key);
+        const pr = calcPR(a.value, b?.value, b?.sd, reversedMap.get(a.key));
+        if (pr != null) prMap.set(a.key, pr);
+      });
     }
 
     return {
-      valuesA: isAAggregate
-        ? generateAggregateValues(seedA, keys)
-        : generateIndividualValues(keys),
-      valuesB: isBAggregate
-        ? generateAggregateValues(seedB, keys)
-        : generateIndividualValues(keys),
+      valuesA,
+      valuesB,
       pitchValuesA: [],
       pitchValuesB: [],
+      showPR,
+      prMap,
       isReady: true,
     };
-  }, [targetA?.id, targetA?.type, targetA?.secondary?.id, targetB?.id, targetB?.type, targetB?.secondary?.id, comparisonType, pitchType]);
+  }, [
+    targetA?.id,
+    targetA?.type,
+    targetA?.secondary?.id,
+    targetA?.gender,
+    targetB?.id,
+    targetB?.type,
+    targetB?.secondary?.id,
+    targetB?.gender,
+    comparisonType,
+    pitchType,
+  ]);
 
   return result;
 };

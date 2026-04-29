@@ -30,10 +30,12 @@ export interface StudentData {
   name: string;
   teamId: string;
   teamName: string;
-  /** 層級（優先用學員自己的，fallback 球隊；高中甲組、大專甲組等） */
+  /** 層級（完全跟球隊走 — 由 team.level derive，學員無法覆寫） */
   level?: string;
   /** 縣市（選擇球隊時自動帶入該球隊縣市，學員可手動覆寫） */
   county?: string;
+  /** 性別（必填，預設 male）— 純前端 mock，未存入 supabase */
+  gender: "male" | "female";
   position: string;
   playerType: string;
   height: string;
@@ -61,10 +63,10 @@ export interface StudentFormInput {
   playerType?: string;
   throwingHand?: string;
   battingHand?: string;
-  /** 學員層級（建立時必填，可手動切換） */
-  level?: string;
   /** 學員縣市（選擇球隊時自動帶入，可手動覆寫） */
   county?: string;
+  /** 性別（必填，預設 male） */
+  gender?: "male" | "female";
   teamId: string;
   responsibleCoaches: string[];
 }
@@ -154,10 +156,12 @@ export const StudentsProvider = ({ children }: { children: ReactNode }) => {
     email: student.email,
     teamId: student.team_id || "",
     teamName: getTeamName(student.team_id || ""),
-    // 優先用學員自己的 level（DB 加欄後生效），否則 fallback 為球隊 level
-    level: ((student as { level?: string }).level) || getTeamLevel(student.team_id || ""),
+    // 層級完全跟球隊走 — 由 team.level derive，學員無法覆寫
+    level: getTeamLevel(student.team_id || ""),
     // 優先用學員自己的 county（DB 加欄後生效），否則 fallback 為球隊 county
     county: ((student as { county?: string }).county) || getTeamCounty(student.team_id || ""),
+    // 性別 — DB 尚無欄位，前端預設 male（型別必填，已預先放好讓比較頁可使用）
+    gender: ((student as { gender?: "male" | "female" }).gender) || "male",
     position: student.position || "",
     playerType: (student as any).player_type || "",
     height: student.height || "",
@@ -219,8 +223,10 @@ export const StudentsProvider = ({ children }: { children: ReactNode }) => {
       email: input.email,
       teamId: input.teamId,
       teamName: getTeamName(input.teamId),
-      level: input.level || getTeamLevel(input.teamId),
+      // 層級完全 derive from team
+      level: getTeamLevel(input.teamId),
       county: input.county || getTeamCounty(input.teamId),
+      gender: input.gender || "male",
       position: input.position || "",
       playerType: input.playerType || "",
       height: input.height || "",
@@ -266,8 +272,10 @@ export const StudentsProvider = ({ children }: { children: ReactNode }) => {
       email: input.email,
       teamId: input.teamId,
       teamName: getTeamName(input.teamId),
-      level: input.level || getTeamLevel(input.teamId),
+      // 層級完全 derive from team — 學員轉隊時自動跟著新球隊走
+      level: getTeamLevel(input.teamId),
       county: input.county || getTeamCounty(input.teamId),
+      gender: input.gender || existingStudent.gender || "male",
       position: input.position || "",
       playerType: input.playerType || "",
       height: input.height || "",

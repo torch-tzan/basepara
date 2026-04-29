@@ -23,7 +23,11 @@ import { useTeams } from "@/contexts/TeamsContext";
 import { useAccounts } from "@/contexts/AccountsContext";
 import { useStudents } from "@/contexts/StudentsContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
-import { teamLevelOptions, teamAttributeOptions, countyOptions } from "@/data/teamsConfig";
+import {
+  teamAttributeOptions,
+  countyOptions,
+  getTeamLevelOptionsByAttribute,
+} from "@/data/teamsConfig";
 import { FormSelect } from "@/components/ui/form-select";
 import { z } from "zod";
 
@@ -130,12 +134,18 @@ const TeamForm = () => {
   const coachOptions = useMemo(
     () => accounts
       .filter((acc) => acc.active)
-      .map((acc) => ({ 
-        value: acc.id, 
+      .map((acc) => ({
+        value: acc.id,
         label: acc.name,
         description: getRoleName(acc.roleId),
       })),
     [accounts, getRoleName]
+  );
+
+  // 依屬性動態切換層級下拉選項（屬性=棒球 → 9 種；屬性=壘球 → 慢速/快速壘球）
+  const dynamicLevelOptions = useMemo(
+    () => getTeamLevelOptionsByAttribute(attribute),
+    [attribute]
   );
 
   const validateField = (field: keyof FormErrors, value: string) => {
@@ -322,6 +332,23 @@ const TeamForm = () => {
               </div>
 
               <FormSelect
+                label="球隊屬性"
+                required
+                value={attribute}
+                onValueChange={(value) => {
+                  // 切換屬性時 reset 層級，使用者必須重新選層級（不保留前次選值）
+                  if (value !== attribute) {
+                    setLevel("");
+                  }
+                  setAttribute(value);
+                  if (errors.attribute) setErrors((prev) => ({ ...prev, attribute: undefined }));
+                }}
+                placeholder="請選擇屬性"
+                options={teamAttributeOptions}
+                error={errors.attribute}
+              />
+
+              <FormSelect
                 label="層級"
                 required
                 value={level}
@@ -330,21 +357,8 @@ const TeamForm = () => {
                   if (errors.level) setErrors((prev) => ({ ...prev, level: undefined }));
                 }}
                 placeholder="請選擇層級"
-                options={teamLevelOptions}
+                options={dynamicLevelOptions}
                 error={errors.level}
-              />
-
-              <FormSelect
-                label="球隊屬性"
-                required
-                value={attribute}
-                onValueChange={(value) => {
-                  setAttribute(value);
-                  if (errors.attribute) setErrors((prev) => ({ ...prev, attribute: undefined }));
-                }}
-                placeholder="請選擇屬性"
-                options={teamAttributeOptions}
-                error={errors.attribute}
               />
             </div>
 

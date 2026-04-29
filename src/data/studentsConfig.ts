@@ -9,6 +9,8 @@ export interface StudentConfig {
   id: string;
   name: string;
   teamId: string;
+  /** 性別（必填，預設 male） */
+  gender: "male" | "female";
   position: string;
   height: string;
   weight: string;
@@ -26,6 +28,7 @@ export const studentsConfig: StudentConfig[] = [
     id: "1",
     name: "王維中",
     teamId: "yongping",
+    gender: "male",
     position: "投手",
     height: "175",
     weight: "68",
@@ -40,6 +43,7 @@ export const studentsConfig: StudentConfig[] = [
     id: "2",
     name: "李明軒",
     teamId: "yongping",
+    gender: "male",
     position: "捕手",
     height: "170",
     weight: "65",
@@ -54,6 +58,7 @@ export const studentsConfig: StudentConfig[] = [
     id: "3",
     name: "張佳豪",
     teamId: "jiangong",
+    gender: "male",
     position: "內野手",
     height: "168",
     weight: "62",
@@ -68,6 +73,7 @@ export const studentsConfig: StudentConfig[] = [
     id: "4",
     name: "陳志偉",
     teamId: "taichung",
+    gender: "male",
     position: "外野手",
     height: "172",
     weight: "70",
@@ -82,6 +88,7 @@ export const studentsConfig: StudentConfig[] = [
     id: "5",
     name: "林宇翔",
     teamId: "chiayi",
+    gender: "male",
     position: "投手",
     height: "178",
     weight: "72",
@@ -96,6 +103,7 @@ export const studentsConfig: StudentConfig[] = [
     id: "6",
     name: "黃建華",
     teamId: "yongping",
+    gender: "male",
     position: "內野手",
     height: "165",
     weight: "58",
@@ -138,6 +146,7 @@ export const getFullStudentData = (config: StudentConfig) => {
     name: config.name,
     teamId: config.teamId,
     teamName: getTeamNameById(config.teamId),
+    gender: config.gender,
     position: config.position,
     height: config.height,
     weight: config.weight,

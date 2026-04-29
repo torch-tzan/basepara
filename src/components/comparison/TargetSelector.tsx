@@ -2,7 +2,10 @@ import { useMemo } from "react";
 import { FormSelect, type FormSelectOption } from "@/components/ui/form-select";
 import { useTeams } from "@/contexts/TeamsContext";
 import { useStudents } from "@/contexts/StudentsContext";
-import { teamLevelOptions, countyOptions } from "@/data/teamsConfig";
+import { countyOptions, getTeamLevelOptionsByAttribute } from "@/data/teamsConfig";
+
+/** 運動類別：棒球 / 壘球，影響層級可選清單 */
+export type Sport = "baseball" | "softball";
 
 // ═══════════════════════════════════════
 // Types
@@ -52,11 +55,19 @@ interface TargetSelectorProps {
   side: string;
   target: ComparisonTarget | null;
   onChange: (target: ComparisonTarget | null) => void;
+  /** 運動類別 — 決定層級可選清單（棒球 9 種 / 壘球 2 種）。預設 baseball */
+  sport?: Sport;
 }
 
-const TargetSelector = ({ side, target, onChange }: TargetSelectorProps) => {
+const TargetSelector = ({ side, target, onChange, sport = "baseball" }: TargetSelectorProps) => {
   const { teams } = useTeams();
   const { students } = useStudents();
+
+  /** 依運動類別動態取得層級選項 */
+  const levelOptions = useMemo<FormSelectOption[]>(
+    () => getTeamLevelOptionsByAttribute(sport === "softball" ? "壘球" : "棒球"),
+    [sport]
+  );
 
   // 動態生成「值」選項
   const studentOptions: FormSelectOption[] = useMemo(
@@ -82,7 +93,7 @@ const TargetSelector = ({ side, target, onChange }: TargetSelectorProps) => {
       case "school":
         return schoolOptions;
       case "level":
-        return teamLevelOptions;
+        return levelOptions;
       case "county":
         return countyOptions;
     }
@@ -111,7 +122,7 @@ const TargetSelector = ({ side, target, onChange }: TargetSelectorProps) => {
       case "school":
         return schoolOptions.find((o) => o.value === id)?.label || id;
       case "level":
-        return teamLevelOptions.find((o) => o.value === id)?.label || id;
+        return levelOptions.find((o) => o.value === id)?.label || id;
       case "county":
         return countyOptions.find((o) => o.value === id)?.label || id;
     }
@@ -146,9 +157,9 @@ const TargetSelector = ({ side, target, onChange }: TargetSelectorProps) => {
   const secondaryOptions: FormSelectOption[] = useMemo(() => {
     const none: FormSelectOption = { value: "__none__", label: "全部（不篩選）" };
     if (secondaryType === "county") return [none, ...countyOptions];
-    if (secondaryType === "level") return [none, ...teamLevelOptions];
+    if (secondaryType === "level") return [none, ...levelOptions];
     return [];
-  }, [secondaryType]);
+  }, [secondaryType, levelOptions]);
   const secondaryLabel = secondaryType === "county" ? "縣市（選填）" : "層級（選填）";
 
   const handleSecondaryChange = (val: string) => {

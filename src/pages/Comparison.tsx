@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, ShieldCheck } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -68,6 +68,14 @@ const Comparison = () => {
   return (
     <AppLayout title="層級比較">
       <div className="space-y-6">
+        {/* ── 資料來源說明（一行） ── */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+          <span>
+            成績比較資料僅納入經授權的內部上傳來源（依「角色權限管理 ‧ 納入層級比較」設定）
+          </span>
+        </div>
+
         {/* ── 選擇面板 ── */}
         <Card>
           <CardContent className="pt-6 space-y-6">

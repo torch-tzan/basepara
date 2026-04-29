@@ -17,6 +17,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useDataSource } from "@/hooks/useDataSource";
+import { dataSourceLabels } from "@/types/dataSource";
+import type { DataSourceMeta } from "@/types/dataSource";
 import {
   CloudUpload,
   FileSpreadsheet,
@@ -64,10 +67,16 @@ function getSlots(dir: Direction, mode: Mode): SlotDef[] {
 interface FileSlot {
   name: string;
   size: string;
+  /**
+   * 資料來源標籤：上傳當下依使用者角色判定
+   * internal = 可納入比較母體；external = 僅顯示
+   */
+  dataSourceMeta: DataSourceMeta;
 }
 
 const StructuredUpload = () => {
   const { toast } = useToast();
+  const { dataSource, meta: dataSourceMeta } = useDataSource();
   const [direction, setDirection] = useState<Direction>("batting");
   const [mode, setMode] = useState<Mode>("assessment");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -81,10 +90,14 @@ const StructuredUpload = () => {
   useEffect(() => { setFiles({}); }, [direction, mode]);
 
   const pickFile = (key: string) => {
-    // mock 檔案選擇
+    // mock 檔案選擇 — 一併附上 data_source 標籤
     setFiles((prev) => ({
       ...prev,
-      [key]: { name: `${key}_${date}.dat`, size: `${(Math.random() * 5 + 1).toFixed(1)} MB` },
+      [key]: {
+        name: `${key}_${date}.dat`,
+        size: `${(Math.random() * 5 + 1).toFixed(1)} MB`,
+        dataSourceMeta,
+      },
     }));
   };
 
@@ -116,7 +129,7 @@ const StructuredUpload = () => {
           toast({
             variant: "success",
             title: "✓ 上傳成功",
-            description: `${direction === "pitching" ? "投球" : "打擊"} · ${mode === "assessment" ? "檢測" : "訓練"} 資料已上傳`,
+            description: `${direction === "pitching" ? "投球" : "打擊"} · ${mode === "assessment" ? "檢測" : "訓練"} 資料已上傳（來源：${dataSourceLabels[dataSource]}）`,
           });
           setFiles({});
           return 0;
@@ -125,7 +138,7 @@ const StructuredUpload = () => {
       });
     }, 200);
     return () => clearInterval(id);
-  }, [isUploading, toast, direction, mode]);
+  }, [isUploading, toast, direction, mode, dataSource]);
 
   return (
     <div className="space-y-6">

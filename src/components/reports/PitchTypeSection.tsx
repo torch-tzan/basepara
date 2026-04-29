@@ -32,14 +32,37 @@ export const allPitchTypes = ["四縫線", "曲球", "滑球", "變速球"];
  * 以高中層級為 baseline；其他層級透過倍率調整（與身體素質的層級對照邏輯一致）。
  * key = 指標 label；inner key = 球種；值為 [平均, SD]
  */
-type LevelBaseline = "國中" | "高中" | "大學" | "職業";
+/**
+ * 層級基準支援：
+ *  - 細粒度棒球（9 種）：來自 #6c 後的 ReportNew.LevelBaseline
+ *  - 粗粒度棒球（4 種）：保留以相容 PR #9 之前產出的舊報告
+ *  - 壘球（2 種）：依屬性帶入
+ */
+type LevelBaseline = string;
 
-/** 不同層級對 baseline 的乘數（粗略 mock，主要拉開差異讓 demo 看得到差別） */
-const LEVEL_MULT: Record<LevelBaseline, number> = {
-  國中: 0.88,
+/**
+ * 不同層級對 baseline（以「高中甲組」為基準 = 1.0）的乘數。
+ * 棒球棒次由低到高遞增；壘球因投球機制差異大，倍率大幅縮小（slow pitch ~40%, fast pitch ~55%）。
+ * 這些是 mock 數值，僅供 UI 驗收，實際資料接上時由後端覆蓋。
+ */
+const LEVEL_MULT: Record<string, number> = {
+  // ── 細粒度棒球（#6c 後使用） ──
+  國小: 0.65,
+  國中乙組: 0.78,
+  國中甲組: 0.85,
+  高中乙組: 0.92,
+  高中甲組: 1.0,
+  大專乙組: 1.04,
+  大專甲組: 1.08,
+  成棒: 1.13,
+  職業: 1.18,
+  // ── 粗粒度棒球（舊報告相容） ──
+  國中: 0.85,
   高中: 1.0,
-  大學: 1.06,
-  職業: 1.12,
+  大學: 1.08,
+  // ── 壘球 ──
+  慢速壘球: 0.4,
+  快速壘球: 0.55,
 };
 
 /** 球種數據的 baseline（以高中為基準）*/
@@ -74,7 +97,8 @@ const getLevelStats = (
 ): [number, number] | null => {
   const baseline = table[metricLabel]?.[pitchType];
   if (!baseline) return null;
-  const mult = LEVEL_MULT[level];
+  // 找不到對應層級時 fallback 到 1.0（高中甲組）避免顯示空白
+  const mult = LEVEL_MULT[level] ?? 1.0;
   return [baseline[0] * mult, baseline[1]];
 };
 
@@ -120,7 +144,7 @@ interface PitchTypeSectionProps {
   levelLabel?: LevelBaseline;
 }
 
-const PitchTypeSection = ({ previousCount = 0, singlePitchType, studentId, levelLabel = "高中" }: PitchTypeSectionProps) => {
+const PitchTypeSection = ({ previousCount = 0, singlePitchType, studentId, levelLabel = "高中甲組" }: PitchTypeSectionProps) => {
   const displayTypes = singlePitchType ? [singlePitchType] : allPitchTypes;
   const isSingle = displayTypes.length === 1;
   const prevCols = Array.from({ length: Math.max(0, previousCount) }, (_, i) => i);

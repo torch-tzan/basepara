@@ -34,6 +34,7 @@ import { useTeams } from "@/contexts/TeamsContext";
 import { StudentSearchSelect } from "@/components/ui/student-search-select";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { getModulesByReportType } from "@/data/reportModules";
+import { getLevelOptionsByAttribute, LEVEL_OPTIONS_BY_ATTRIBUTE } from "@/data/teamsConfig";
 import type { Database as SupabaseDB } from "@/integrations/supabase/types";
 
 type ReportType = SupabaseDB["public"]["Enums"]["report_type"];
@@ -46,8 +47,8 @@ interface SelectedModule {
 /** 比較次數：0 單次 / 1 +前一次 / 2 +前兩次 */
 type CompareCount = 0 | 1 | 2;
 
-/** 層級基準 */
-type LevelBaseline = "國中" | "高中" | "大學" | "職業";
+/** 層級基準 — 棒球 9 種 + 壘球 2 種；用 string 容納所有可能值 */
+type LevelBaseline = string;
 
 /** 測驗方式 */
 type TestMethod = "T座" | "實戰" | "拋打" | "發球機";
@@ -130,7 +131,11 @@ const ReportNew = () => {
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [testDate, setTestDate] = useState("");
   const [testMethod, setTestMethod] = useState<TestMethod>("實戰");
-  const [levelBaseline, setLevelBaseline] = useState<LevelBaseline>("高中");
+  /**
+   * 層級基準預設「高中甲組」（棒球體系最常見）；切換到壘球學員時 useEffect 會自動 reset
+   * 為「慢速壘球」（LEVEL_OPTIONS_BY_ATTRIBUTE.softball[0]）
+   */
+  const [levelBaseline, setLevelBaseline] = useState<LevelBaseline>("高中甲組");
   const [compareCount, setCompareCount] = useState<CompareCount>(1);
 
   // 圖表模組
@@ -162,11 +167,35 @@ const ReportNew = () => {
     if (!selectedStudentId) return null;
     const student = students.find((s) => s.id === selectedStudentId);
     if (!student) return null;
+    const team = teams.find((t) => t.id === student.teamId);
     return {
       ...student,
-      teamName: student.teamName || teams.find((t) => t.id === student.teamId)?.name || "",
+      teamName: student.teamName || team?.name || "",
+      teamAttribute: team?.attribute,
+      teamLevel: team?.level,
     };
   }, [selectedStudentId, students, teams]);
+
+  /** 比較層級基準下拉選項：依所選學員的球隊屬性切換（棒球 9 種 / 壘球 2 種） */
+  const availableLevelBaselines = useMemo<readonly string[]>(() => {
+    return getLevelOptionsByAttribute(selectedStudent?.teamAttribute);
+  }, [selectedStudent?.teamAttribute]);
+
+  /**
+   * 學員切換時自動帶入該學員球隊的 level 為 levelBaseline 預設；
+   * 若球隊沒設 level 或不在當前屬性的選項內，fallback 到屬性對應清單第一項
+   */
+  useEffect(() => {
+    if (!selectedStudent) return;
+    const teamLevel = selectedStudent.teamLevel;
+    const inOptions = teamLevel && availableLevelBaselines.includes(teamLevel);
+    if (inOptions) {
+      setLevelBaseline(teamLevel);
+    } else if (!availableLevelBaselines.includes(levelBaseline)) {
+      setLevelBaseline(availableLevelBaselines[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStudent?.teamId]);
 
   const availableDates = useMemo(() => {
     if (!reportType) return [];
@@ -404,16 +433,19 @@ const ReportNew = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>比較層級基準</Label>
-                <Select value={levelBaseline} onValueChange={(v) => setLevelBaseline(v as LevelBaseline)}>
+                <Select value={levelBaseline} onValueChange={(v) => setLevelBaseline(v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="國中">國中</SelectItem>
-                    <SelectItem value="高中">高中</SelectItem>
-                    <SelectItem value="大學">大學</SelectItem>
-                    <SelectItem value="職業">職業</SelectItem>
+                    {availableLevelBaselines.map((lvl) => (
+                      <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                <p className="text-[10px] text-muted-foreground">用於層級平均 ± 0.5SD 的比較基準</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {selectedStudent?.teamAttribute === "壘球"
+                    ? "壘球層級（依學員球隊屬性帶入）"
+                    : "棒球層級（依學員球隊屬性帶入）"}
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>比較模式</Label>

@@ -59,12 +59,15 @@ export const pitchingMechanicsItems: MechanicsItem[] = [
 interface MechanicsChecklistProps {
   type: "batting" | "pitching";
   items?: MechanicsItem[];
+  /** 自訂標題（分頁時可傳「投球動作機制查核（續）」等） */
+  title?: string;
 }
 
-const MechanicsChecklist = ({ type, items }: MechanicsChecklistProps) => {
+const MechanicsChecklist = ({ type, items, title: titleOverride }: MechanicsChecklistProps) => {
   const defaultItems = type === "batting" ? battingMechanicsItems : pitchingMechanicsItems;
   const checkItems = items || defaultItems;
-  const title = type === "batting" ? "打擊動作機制查核" : "投球動作機制查核";
+  const defaultTitle = type === "batting" ? "打擊動作機制查核" : "投球動作機制查核";
+  const title = titleOverride ?? defaultTitle;
 
   return (
     <div>

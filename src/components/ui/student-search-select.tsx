@@ -20,7 +20,15 @@ export interface StudentOption {
   id: string;
   name: string;
   teamName: string;
+  /** 層級（選填，例如「高中甲組」「大專甲組」），有提供時會顯示在學校之後 */
+  level?: string;
 }
+
+/** 把學校 + 層級組成括號內顯示的字串：「學校・層級」、單一存在時只顯示該值 */
+const formatStudentMeta = (s: { teamName: string; level?: string }): string => {
+  const parts = [s.teamName, s.level].filter((v) => v && v.trim().length > 0);
+  return parts.join("・");
+};
 
 export interface StudentSearchSelectProps {
   students: StudentOption[];
@@ -78,7 +86,7 @@ const StudentSearchSelect = ({
               <span className="truncate">
                 {selectedStudent.name}
                 <span className="text-muted-foreground ml-1">
-                  ({selectedStudent.teamName})
+                  ({formatStudentMeta(selectedStudent)})
                 </span>
               </span>
             ) : value === "" && allowAllStudents ? (
@@ -125,13 +133,13 @@ const StudentSearchSelect = ({
               {students.map((student) => (
                 <CommandItem
                   key={student.id}
-                  value={`${student.name} ${student.teamName}`}
+                  value={`${student.name} ${student.teamName} ${student.level || ""}`}
                   onSelect={() => handleSelect(student.id)}
                 >
                   <div className="flex flex-col">
                     <span className="font-medium">{student.name}</span>
                     <span className="text-xs text-muted-foreground">
-                      {student.teamName}
+                      {formatStudentMeta(student) || "—"}
                     </span>
                   </div>
                   <Check

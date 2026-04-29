@@ -135,31 +135,6 @@ const PitchMovementChart = () => {
           <text x={w - 5} y={cy - 5} textAnchor="end" fontSize={9} fill="#999">HB (in)</text>
           <text x={cx + 5} y={12} fontSize={9} fill="#999">VB (in)</text>
 
-          {/* 出手角度指示線（從原點射出） */}
-          {(() => {
-            // ArmSlot：從 3 點鐘方向逆時針算的角度（°），右投高於水平線是正值
-            // 轉成 SVG 角度：0°=水平向右，角度逆時針遞增 → svg 中 y 是向下為正，所以 y 方向要反向
-            const rad = (armSlotDeg * Math.PI) / 180;
-            const len = 110;
-            const endX = cx + Math.cos(rad) * len;
-            const endY = cy - Math.sin(rad) * len;
-            return (
-              <g>
-                <line
-                  x1={cx} y1={cy} x2={endX} y2={endY}
-                  stroke="#a78bfa" strokeWidth={1.5}
-                  strokeDasharray="4 3" opacity={0.85}
-                />
-                <text
-                  x={endX + 4} y={endY - 2}
-                  fontSize={9} fill="#c4b5fd" fontWeight={700}
-                >
-                  出手角度 {armSlotDeg}°
-                </text>
-              </g>
-            );
-          })()}
-
           {/* 每球種資料 */}
           {visiblePitches.map((pt) => {
             const ell = levelEllipseByPitch[level]?.[pt.type];
@@ -194,6 +169,29 @@ const PitchMovementChart = () => {
               </g>
             );
           })}
+
+          {/* 出手角度指示線（放在最上層，不被球種散點遮擋） */}
+          {(() => {
+            const rad = (armSlotDeg * Math.PI) / 180;
+            const len = 110;
+            const endX = cx + Math.cos(rad) * len;
+            const endY = cy - Math.sin(rad) * len;
+            return (
+              <g>
+                <line
+                  x1={cx} y1={cy} x2={endX} y2={endY}
+                  stroke="#a78bfa" strokeWidth={1.5}
+                  strokeDasharray="4 3" opacity={0.85}
+                />
+                <text
+                  x={endX + 4} y={endY - 2}
+                  fontSize={9} fill="#c4b5fd" fontWeight={700}
+                >
+                  出手角度 {armSlotDeg}°
+                </text>
+              </g>
+            );
+          })()}
         </svg>
       </div>
 

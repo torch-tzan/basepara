@@ -2,10 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import TrainingMediaUpload from "@/components/upload/TrainingMediaUpload";
 import StructuredUpload from "@/components/upload/StructuredUpload";
 import { cn } from "@/lib/utils";
+import { useDataSource } from "@/hooks/useDataSource";
+import { dataSourceLabels } from "@/types/dataSource";
 import {
   LineChart,
   Heart,
@@ -20,6 +23,7 @@ import {
   Video,
   FileUp,
   ClipboardList,
+  ShieldAlert,
 } from "lucide-react";
 
 const uploadTypes = [
@@ -46,6 +50,7 @@ const Upload = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
+  const { dataSource, isInternal } = useDataSource();
 
   const handleFileSelect = () => {
     // Simulate file selection
@@ -76,10 +81,12 @@ const Upload = () => {
         if (prev >= 100) {
           clearInterval(interval);
           setIsUploading(false);
+          // 上傳完成時，將 data_source 標籤一起帶入 mock 資料層
+          // 註：實際儲存上層由 Supabase 處理，這裡僅在 toast 顯示來源以利驗證
           toast({
             variant: "success",
             title: "✓ 上傳成功",
-            description: `檔案「${uploadedFile?.name}」已成功上傳`,
+            description: `檔案「${uploadedFile?.name}」已成功上傳（來源：${dataSourceLabels[dataSource]}）`,
           });
           setUploadedFile(null);
           return 0;
@@ -91,11 +98,28 @@ const Upload = () => {
     }, 200);
 
     return () => clearInterval(interval);
-  }, [isUploading, uploadedFile, toast]);
+  }, [isUploading, uploadedFile, toast, dataSource]);
 
   return (
     <AppLayout title="資料上傳">
       <div className="space-y-6">
+        {/* ═══ 資料來源誤差提示 ═══ */}
+        <Alert className="border-amber-300/60 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertTitle className="text-amber-900 dark:text-amber-200">
+            資料來源可能影響準確度
+          </AlertTitle>
+          <AlertDescription className="text-amber-800/90 dark:text-amber-100/90">
+            球隊教練或學員自行上傳的資料，可能因儀器誤差或缺乏校準而影響準確度。
+            建議以場館內部人員（Admin / 場館教練）上傳的資料為主，
+            並可至「角色權限管理」勾選哪些角色的資料可納入成績比較。
+            <span className="ml-1 font-medium">
+              你目前的上傳將被標記為「{dataSourceLabels[dataSource]}」
+              {isInternal ? "（會納入比較母體）" : "（僅顯示，不納入比較母體）"}
+            </span>
+          </AlertDescription>
+        </Alert>
+
         {/* ═══ 模式切換：單檔上傳 / 當日整批上傳 ═══ */}
         <section className="bg-card rounded-lg border border-border p-2">
           <div className="grid grid-cols-2 gap-2">

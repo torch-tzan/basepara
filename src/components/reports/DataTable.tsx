@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ArrowUp, ArrowDown, Info } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getMetricDescription } from "@/data/metricDescriptions";
 
 export interface MetricRow {
   /** 參數名稱 */
@@ -38,15 +37,9 @@ export interface MetricRow {
   formula?: string;
   /** 欄位名稱對應的後端資料來源（顯示在 tooltip 中） */
   dataSource?: string;
+  /** 是否顯示 PR（百分位排名），設為 false 可隱藏此欄位的 PR 值 */
+  showPR?: boolean;
 }
-
-/**
- * 顯示模式：
- * - mean 只顯示平均值
- * - mean_sd 顯示「平均值 ± 標準差」
- * - percent 顯示層級百分位（選手在該層級的相對位置）
- */
-export type DisplayMode = "mean" | "mean_sd" | "percent";
 
 interface DataTableProps {
   title: string;
@@ -62,8 +55,8 @@ interface DataTableProps {
   subtitle?: string;
   /** 層級平均基準標籤（如「高中」） */
   levelLabel?: string;
-  /** 是否顯示「顯示模式切換」按鈕（預設顯示） */
-  allowModeSwitch?: boolean;
+  /** 是否顯示 PR 值欄位 */
+  showPR?: boolean;
 }
 
 /** 格式化數值 */
@@ -160,26 +153,35 @@ const DataTable = ({
   showLevelAvg = true,
   subtitle,
   levelLabel,
-  allowModeSwitch = true,
+  showPR = false,
 }: DataTableProps) => {
-  const [mode, setMode] = useState<DisplayMode>("mean");
   const prevColumns = Array.from({ length: Math.max(0, previousCount) }, (_, i) => i);
 
-  /** 依顯示模式格式化選手數據 */
+  /**
+   * 依每個欄位自身標示格式化選手數據：
+   * - showSD + sd → 顯示「平均 ± 標準差」
+   * - 其餘 → 顯示原始數值
+   */
   const formatValue = (row: MetricRow): string => {
     if (row.value == null) return "—";
     if (typeof row.value === "string") return row.value;
 
-    if (mode === "mean_sd" && row.sd != null) {
+    if (row.showSD && row.sd != null) {
       return `${fmt(row.value, row.decimals)} ± ${fmt(row.sd, row.decimals)}`;
     }
-    if (mode === "percent" && row.levelAvg != null && row.levelSD != null && row.levelSD > 0) {
-      // 以 z-score 估算百分位 (粗略 normal CDF 近似)
-      const z = (row.value - row.levelAvg) / row.levelSD;
-      const pct = Math.round(normalCDF(z) * 100);
-      return `${pct}%`;
-    }
     return fmt(row.value, row.decimals);
+  };
+
+  /** 計算 PR 值（百分位排名）— opt-in：僅 row.showPR === true 時顯示 */
+  const formatPR = (row: MetricRow): string => {
+    if (row.showPR !== true) return "";
+    if (row.value == null || typeof row.value === "string") return "";
+    if (row.levelAvg == null || row.levelSD == null || row.levelSD <= 0) return "";
+    const z = row.reversed
+      ? (row.levelAvg - row.value) / row.levelSD
+      : (row.value - row.levelAvg) / row.levelSD;
+    const pct = Math.round(normalCDF(z) * 100);
+    return `${pct}`;
   };
 
   return (
@@ -188,34 +190,6 @@ const DataTable = ({
         <h3 className="text-base font-semibold text-foreground">{title}</h3>
         {subtitle && (
           <span className="text-xs text-muted-foreground">{subtitle}</span>
-        )}
-        {allowModeSwitch && (
-          <div className="ml-auto flex items-center gap-1 print:hidden">
-            <Button
-              variant={mode === "mean" ? "default" : "outline"}
-              size="sm"
-              className="h-6 px-2 text-[10px]"
-              onClick={() => setMode("mean")}
-            >
-              平均值
-            </Button>
-            <Button
-              variant={mode === "mean_sd" ? "default" : "outline"}
-              size="sm"
-              className="h-6 px-2 text-[10px]"
-              onClick={() => setMode("mean_sd")}
-            >
-              平均 ± SD
-            </Button>
-            <Button
-              variant={mode === "percent" ? "default" : "outline"}
-              size="sm"
-              className="h-6 px-2 text-[10px]"
-              onClick={() => setMode("percent")}
-            >
-              百分位
-            </Button>
-          </div>
         )}
       </div>
 
@@ -242,10 +216,15 @@ const DataTable = ({
                   {levelLabel ? `${levelLabel}平均` : "層級平均"} ± 0.5SD
                 </th>
               )}
+              {showPR && (
+                <th className="text-center py-2 px-3 font-medium text-muted-foreground w-16">
+                  PR
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {rows.filter((row) => row.value != null).map((row) => {
               const colorClass = getColorClass(
                 row.value,
                 row.levelAvg,
@@ -260,7 +239,8 @@ const DataTable = ({
                   ? getArrow(row.value, firstPrev, row.reversed)
                   : null;
 
-              const hasTooltip = !!(row.formula || row.dataSource || row.okRange);
+              const description = getMetricDescription(row.label);
+              const hasTooltip = !!description;
 
               return (
                 <tr key={row.label} className="border-b border-border/50 hover:bg-muted/20">
@@ -279,14 +259,7 @@ const DataTable = ({
                               <Info className="w-3 h-3 text-muted-foreground/60 cursor-help" />
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-xs text-xs">
-                              {row.formula && <div><strong>公式：</strong>{row.formula}</div>}
-                              {row.okRange && (
-                                <div>
-                                  <strong>OK 區間：</strong>
-                                  {row.okRange[0]} ~ {row.okRange[1]}
-                                </div>
-                              )}
-                              {row.dataSource && <div><strong>資料來源：</strong>{row.dataSource}</div>}
+                              {description}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -317,6 +290,11 @@ const DataTable = ({
                               : ""
                           }`
                         : "—"}
+                    </td>
+                  )}
+                  {showPR && (
+                    <td className="py-2 px-3 text-center text-muted-foreground tabular-nums">
+                      {formatPR(row)}
                     </td>
                   )}
                 </tr>

@@ -19,7 +19,6 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
-  Lock,
   CheckCircle2,
   Database,
   CalendarDays,
@@ -28,6 +27,7 @@ import {
   Mic,
   Upload,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useDataAccess } from "@/hooks/useDataAccess";
 import { useStudents } from "@/contexts/StudentsContext";
 import { useTeams } from "@/contexts/TeamsContext";
@@ -52,21 +52,22 @@ type LevelBaseline = "國中" | "高中" | "大學" | "職業";
 /** 測驗方式 */
 type TestMethod = "T座" | "實戰" | "拋打" | "發球機";
 
-const FIXED_SECTIONS: Record<string, { label: string; description: string; dataSource: string }[]> = {
+/**
+ * 固定區塊：每個 key 對應 ReportView 的 hasSection() 檢查（fitness/mobility/swing/hitting/pitch/mechanics）。
+ * key 寫入 chart_data.missing_sections — 教練若關閉某區塊，產出的報告會自動跳過渲染。
+ */
+const FIXED_SECTIONS: Record<string, { key: string; label: string; description: string; dataSource: string }[]> = {
   打擊: [
-    { label: "選手個資 + 身體素質", description: "體重、體脂率、骨骼肌重、反向跳、落下跳、藥球側拋、握力、引體向上", dataSource: "體能活動度數據" },
-    { label: "揮棒數據", description: "揮棒速度、峰值手腕速度、揮擊時間、攻擊角度、平面重和率等", dataSource: "打擊數據" },
-    { label: "擊球數據", description: "擊球初速、仰角、水平角、飛行距離、碰撞效率等", dataSource: "打擊數據" },
-    { label: "動作機制查核", description: "14 項打擊機制（綠色勾 / 紅色叉）", dataSource: "打擊機制檢核" },
-    { label: "機制說明", description: "針對被標示問題的機制自動生成說明文字", dataSource: "打擊機制檢核" },
+    { key: "fitness", label: "選手個資 + 身體素質", description: "體重、體脂率、骨骼肌重、反向跳、落下跳、藥球側拋、握力、引體向上", dataSource: "體能活動度數據" },
+    { key: "swing", label: "揮棒數據", description: "揮棒速度、峰值手腕速度、揮擊時間、攻擊角度、平面重和率等", dataSource: "打擊數據" },
+    { key: "hitting", label: "擊球數據", description: "擊球初速、仰角、水平角、飛行距離、碰撞效率等", dataSource: "打擊數據" },
+    { key: "mechanics", label: "動作機制查核 + 機制說明", description: "14 項打擊機制（綠色勾 / 紅色叉）+ 針對被標示問題的機制自動生成說明文字", dataSource: "打擊機制檢核" },
   ],
   投球: [
-    { label: "選手個資 + 身體素質", description: "體重、體脂率、骨骼肌重、反向跳、落下跳、藥球側拋、握力、引體向上", dataSource: "體能活動度數據" },
-    { label: "活動度 + 危險因子", description: "慣用側/非慣用側關節活動度 + GIRD、TAM 等危險因子", dataSource: "體能活動度數據" },
-    { label: "球種數據（單次）", description: "各球種的球速、轉速、旋轉效率、位移、出手點等", dataSource: "投球數據" },
-    { label: "球種數據（各球種比較）", description: "每球種獨立一頁，呈現當次 vs 前次比較", dataSource: "投球數據" },
-    { label: "動作機制查核", description: "26 項投球機制（綠色勾 / 紅色叉）", dataSource: "投球機制檢核" },
-    { label: "機制說明", description: "針對被標示問題的機制自動生成說明文字", dataSource: "投球機制檢核" },
+    { key: "fitness", label: "選手個資 + 身體素質", description: "體重、體脂率、骨骼肌重、反向跳、落下跳、藥球側拋、握力、引體向上", dataSource: "體能活動度數據" },
+    { key: "mobility", label: "活動度 + 危險因子", description: "慣用側/非慣用側關節活動度 + GIRD、TAM 等危險因子", dataSource: "體能活動度數據" },
+    { key: "pitch", label: "球種數據", description: "各球種的球速、轉速、旋轉效率、位移、出手點等（含單次與各球種比較）", dataSource: "投球數據" },
+    { key: "mechanics", label: "動作機制查核 + 機制說明", description: "26 項投球機制（綠色勾 / 紅色叉）+ 針對被標示問題的機制自動生成說明文字", dataSource: "投球機制檢核" },
   ],
 };
 
@@ -111,6 +112,8 @@ export interface ReportDraft {
   testMethod: TestMethod;
   previousDates: string[];
   selectedModules: SelectedModule[];
+  /** 被關閉的固定區塊 key 清單（寫入 chart_data.missing_sections） */
+  excludedSections: string[];
   personalAdvice: string;
   /** 自動產生的標題 */
   autoTitle: string;
@@ -133,6 +136,9 @@ const ReportNew = () => {
   // 圖表模組
   const [selectedModules, setSelectedModules] = useState<SelectedModule[]>([]);
 
+  // 固定區塊開關（被關閉的 key 集合，預設全部顯示 = 空 Set）
+  const [excludedSections, setExcludedSections] = useState<Set<string>>(new Set());
+
   // 教練回覆
   const [personalAdvice, setPersonalAdvice] = useState("");
 
@@ -144,18 +150,22 @@ const ReportNew = () => {
   const fixedSections = reportType ? FIXED_SECTIONS[reportType] || [] : [];
 
   const searchableStudents = useMemo(() => {
-    return filteredStudents.map((s) => {
-      const team = teams.find((t) => t.id === s.team_id);
-      return { id: s.id, name: s.name, teamName: team?.name || "" };
-    });
+    return filteredStudents.map((s) => ({
+      id: s.id,
+      name: s.name,
+      teamName: s.teamName || teams.find((t) => t.id === s.teamId)?.name || "",
+      level: s.level || teams.find((t) => t.id === s.teamId)?.level || "",
+    }));
   }, [filteredStudents, teams]);
 
   const selectedStudent = useMemo(() => {
     if (!selectedStudentId) return null;
     const student = students.find((s) => s.id === selectedStudentId);
     if (!student) return null;
-    const team = teams.find((t) => t.id === student.team_id);
-    return { ...student, teamName: team?.name || "" };
+    return {
+      ...student,
+      teamName: student.teamName || teams.find((t) => t.id === student.teamId)?.name || "",
+    };
   }, [selectedStudentId, students, teams]);
 
   const availableDates = useMemo(() => {
@@ -196,9 +206,18 @@ const ReportNew = () => {
     return `${testDate} · ${selectedStudent.name} · ${reportType}報告`;
   }, [selectedStudent, reportType, testDate]);
 
+  /** 各類型報告的預設勾選圖表 module id（順序即顯示順序） */
+  const DEFAULT_MODULES: Record<string, string[]> = {
+    // 打擊：個人成績分佈、攻擊角度/揮擊時間散佈、擊球落點＋強勁程度場地
+    打擊: ["batting_3_6", "batting_3_5", "batting_3_4"],
+    // 投球：個人成績分佈固定第一、球路位移圖第二
+    投球: ["pitching_4_1", "pitching_4_2"],
+  };
+
   const handleReportTypeChange = (value: string) => {
     setReportType(value as ReportType);
-    setSelectedModules([]);
+    const defaults = DEFAULT_MODULES[value] || [];
+    setSelectedModules(defaults.map((moduleId, i) => ({ moduleId, order: i + 1 })));
     setTestDate("");
   };
 
@@ -287,6 +306,7 @@ const ReportNew = () => {
       testMethod,
       previousDates,
       selectedModules,
+      excludedSections: Array.from(excludedSections),
       personalAdvice: personalAdvice.trim(),
       autoTitle,
     };
@@ -351,30 +371,33 @@ const ReportNew = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>測驗方式</Label>
-                <Select
-                  value={testMethod}
-                  onValueChange={(v) => setTestMethod(v as TestMethod)}
-                  disabled={!testDate || availableTestMethods.length <= 1}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={!testDate ? "請先選擇檢測日期" : "選擇測驗方式"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableTestMethods.map((m) => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground">
-                  {!testDate
-                    ? "依當日檢測資料自動帶入"
-                    : availableTestMethods.length === 1
-                    ? `當日僅有「${availableTestMethods[0]}」檢測`
-                    : `當日有 ${availableTestMethods.length} 種檢測方式，可切換`}
-                </p>
-              </div>
+              {/* 投球報告不需要測驗方式（無實戰/發球機區分） */}
+              {reportType !== "投球" && (
+                <div className="space-y-2">
+                  <Label>測驗方式</Label>
+                  <Select
+                    value={testMethod}
+                    onValueChange={(v) => setTestMethod(v as TestMethod)}
+                    disabled={!testDate || availableTestMethods.length <= 1}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={!testDate ? "請先選擇檢測日期" : "選擇測驗方式"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTestMethods.map((m) => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    {!testDate
+                      ? "依當日檢測資料自動帶入"
+                      : availableTestMethods.length === 1
+                      ? `當日僅有「${availableTestMethods[0]}」檢測`
+                      : `當日有 ${availableTestMethods.length} 種檢測方式，可切換`}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* ── 第三行：比較層級基準 / 比較模式（各 1/3） ── */}
@@ -414,7 +437,7 @@ const ReportNew = () => {
                   <span className="text-muted-foreground ml-2">
                     {autoTitle}
                     {previousDates.length > 0 && `（比較：${previousDates.join("、")}）`}
-                    {` · ${testMethod} · 對比${levelBaseline}`}
+                    {reportType === "投球" ? ` · 對比${levelBaseline}` : ` · ${testMethod} · 對比${levelBaseline}`}
                   </span>
                 </div>
                 <Badge variant="outline" className="text-green-600 dark:text-green-400 border-green-500/30">
@@ -438,23 +461,44 @@ const ReportNew = () => {
                 <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-bold">2</div>
                 <CardTitle className="text-lg">確認資料 & 選擇圖表</CardTitle>
               </div>
-              <CardDescription>固定區塊已從資料庫載入，勾選圖表模組後可直接排序</CardDescription>
+              <CardDescription>固定區塊已從資料庫載入，可關閉不需要的區塊；勾選圖表模組後可直接排序</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               {/* 固定區塊 */}
               <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-3">固定區塊（由資料庫載入）</h4>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">固定區塊（由資料庫載入，預設全部顯示）</h4>
                 <div className="space-y-1.5">
-                  {fixedSections.map((section, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 border border-border/50">
-                      <Lock className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-foreground">{section.label}</span>
-                        <p className="text-xs text-muted-foreground mt-0.5">{section.description}</p>
+                  {fixedSections.map((section) => {
+                    const isOn = !excludedSections.has(section.key);
+                    return (
+                      <div
+                        key={section.key}
+                        className={cn(
+                          "flex items-start gap-3 p-3 rounded-lg border transition-colors",
+                          isOn ? "bg-muted/40 border-border/50" : "bg-muted/20 border-border/30 opacity-60"
+                        )}
+                      >
+                        <Switch
+                          checked={isOn}
+                          onCheckedChange={(checked) => {
+                            setExcludedSections((prev) => {
+                              const next = new Set(prev);
+                              if (checked) next.delete(section.key);
+                              else next.add(section.key);
+                              return next;
+                            });
+                          }}
+                          className="mt-0.5 flex-shrink-0"
+                          aria-label={`${section.label} 顯示開關`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-foreground">{section.label}</span>
+                          <p className="text-xs text-muted-foreground mt-0.5">{section.description}</p>
+                        </div>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 flex-shrink-0">{section.dataSource}</Badge>
                       </div>
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 flex-shrink-0">{section.dataSource}</Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

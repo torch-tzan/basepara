@@ -4,59 +4,48 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChartControls } from "../chartControlsContext";
 
 const metrics = [
-  { value: "swing_speed", label: "揮棒速度", unit: "km/h" },
-  { value: "attack_angle", label: "攻擊角度", unit: "°" },
-  { value: "swing_time", label: "揮擊時間", unit: "s" },
-  { value: "exit_velo", label: "擊球初速", unit: "MPH" },
-  { value: "launch_angle", label: "擊球仰角", unit: "°" },
-  { value: "top20_la", label: "前20%強擊球仰角", unit: "°" },
-  { value: "smash_factor", label: "擊球品質", unit: "" },
+  { value: "grip_dom", label: "握力 慣用手", unit: "kg" },
+  { value: "grip_non", label: "握力 非慣用手", unit: "kg" },
+  { value: "medball_dom", label: "藥球側拋 慣用手", unit: "kph" },
+  { value: "medball_non", label: "藥球側拋 非慣用手", unit: "kph" },
+  { value: "cmj_height", label: "反向跳 跳躍高度", unit: "cm" },
+  { value: "dj_rsi", label: "落下跳 反應肌力", unit: "" },
+  { value: "dj_contact", label: "落下跳 觸地時間", unit: "s" },
+  { value: "pullup", label: "引體向上", unit: "次" },
+  { value: "sprint_total", label: "衝刺 總完成時間", unit: "s" },
 ];
 
 const levels = [
-  { key: "personal", label: "個人", color: "#60a5fa", mean: 0 },
-  { key: "affiliate", label: "職業", color: "#f87171", mean: 0 },
-  { key: "college", label: "大學", color: "#34d399", mean: 0 },
-  { key: "highSchool", label: "高中", color: "#fbbf24", mean: 0 },
-  { key: "youth", label: "青少棒", color: "#a78bfa", mean: 0 },
+  { key: "personal", label: "個人", color: "#60a5fa" },
+  { key: "affiliate", label: "職業", color: "#f87171" },
+  { key: "college", label: "大學", color: "#34d399" },
+  { key: "highSchool", label: "高中", color: "#fbbf24" },
+  { key: "youth", label: "青少棒", color: "#a78bfa" },
 ];
 
-function generateBellCurve(mean: number, std: number, points: number = 50) {
-  const data: number[] = [];
-  const min = mean - 3 * std;
-  const max = mean + 3 * std;
-  for (let i = 0; i < points; i++) {
-    const x = min + (i / (points - 1)) * (max - min);
-    const y = Math.exp(-0.5 * ((x - mean) / std) ** 2) / (std * Math.sqrt(2 * Math.PI));
-    data.push(y);
-  }
-  return data;
-}
-
 const metricsConfig: Record<string, { means: number[]; std: number; range: [number, number] }> = {
-  swing_speed: { means: [108, 115, 120, 100, 90], std: 8, range: [70, 140] },
-  attack_angle: { means: [8, 10, 12, 6, 4], std: 5, range: [-10, 30] },
-  swing_time: { means: [0.18, 0.16, 0.15, 0.20, 0.22], std: 0.03, range: [0.08, 0.30] },
-  exit_velo: { means: [85, 92, 98, 78, 70], std: 8, range: [50, 120] },
-  launch_angle: { means: [12, 14, 15, 10, 8], std: 8, range: [-15, 40] },
-  top20_la: { means: [18, 20, 22, 15, 12], std: 5, range: [0, 35] },
-  smash_factor: { means: [1.15, 1.25, 1.30, 1.10, 1.00], std: 0.12, range: [0.6, 1.6] },
+  grip_dom: { means: [42, 56, 50, 38, 30], std: 7, range: [15, 75] },
+  grip_non: { means: [39, 52, 47, 36, 28], std: 7, range: [15, 70] },
+  medball_dom: { means: [52, 68, 60, 48, 38], std: 8, range: [20, 90] },
+  medball_non: { means: [49, 64, 56, 45, 35], std: 8, range: [20, 85] },
+  cmj_height: { means: [42, 55, 48, 38, 30], std: 6, range: [15, 70] },
+  dj_rsi: { means: [1.35, 1.75, 1.55, 1.20, 0.90], std: 0.30, range: [0.3, 2.5] },
+  dj_contact: { means: [0.28, 0.22, 0.25, 0.32, 0.38], std: 0.06, range: [0.1, 0.6] },
+  pullup: { means: [8, 18, 14, 5, 2], std: 4, range: [0, 30] },
+  sprint_total: { means: [1.65, 1.45, 1.55, 1.75, 1.95], std: 0.15, range: [1.0, 2.5] },
 };
 
-interface BattingDistributionChartProps {
-  /** 預設選擇的指標（不傳預設揮棒速度） */
+interface FitnessDistributionChartProps {
   defaultMetric?: string;
-  /** 鎖定指標（不顯示切換器） */
   lockMetric?: boolean;
-  /** 緊湊模式（高度較矮，方便塞進 A4 報告頁） */
   compact?: boolean;
 }
 
-const BattingDistributionChart = ({
-  defaultMetric = "swing_speed",
+const FitnessDistributionChart = ({
+  defaultMetric = "grip_dom",
   lockMetric = false,
   compact = false,
-}: BattingDistributionChartProps = {}) => {
+}: FitnessDistributionChartProps = {}) => {
   const [metric, setMetric] = useState(defaultMetric);
 
   const chartData = useMemo(() => {
@@ -78,11 +67,9 @@ const BattingDistributionChart = ({
 
   const config = metricsConfig[metric];
   const unit = metrics.find((m) => m.value === metric)?.unit ?? "";
-
-  /** 根據指標不同使用不同的數字格式 */
   const formatMean = (v: number) => {
-    if (metric === "swing_time") return v.toFixed(2);
-    if (metric === "smash_factor") return v.toFixed(2);
+    if (metric === "dj_rsi" || metric === "dj_contact" || metric === "sprint_total") return v.toFixed(2);
+    if (metric === "pullup") return v.toFixed(0);
     return v.toFixed(1);
   };
 
@@ -91,7 +78,7 @@ const BattingDistributionChart = ({
       {!lockMetric && (
         <ChartControls>
           <Select value={metric} onValueChange={setMetric}>
-            <SelectTrigger className="w-[160px] h-8 text-xs">
+            <SelectTrigger className="w-[180px] h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -119,7 +106,6 @@ const BattingDistributionChart = ({
             <Area type="monotone" dataKey="college" stroke="#34d399" fill="none" strokeWidth={1} strokeDasharray="6 3" name="大學" />
             <Area type="monotone" dataKey="highSchool" stroke="#fbbf24" fill="none" strokeWidth={1} strokeDasharray="6 3" name="高中" />
             <Area type="monotone" dataKey="youth" stroke="#a78bfa" fill="none" strokeWidth={1} strokeDasharray="6 3" name="青少棒" />
-            {/* ReferenceLine：虛線 + 層級名稱與平均值標在線頂 */}
             {config.means.map((mean, idx) => (
               <ReferenceLine
                 key={idx}
@@ -156,4 +142,4 @@ const BattingDistributionChart = ({
   );
 };
 
-export default BattingDistributionChart;
+export default FitnessDistributionChart;

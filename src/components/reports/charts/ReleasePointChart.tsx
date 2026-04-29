@@ -44,10 +44,11 @@ interface PitchParams {
   height: [number, number];
   ext: [number, number];
 }
+// 刻意讓 FB/SL 的 side 與 height 重疊，驗證圖層可辨識度
 const pitchParams: Record<PitchType, PitchParams> = {
-  FB: { n: 15, side: [1.25, 0.07], height: [1.82, 0.05], ext: [1.92, 0.05] },
+  FB: { n: 15, side: [1.22, 0.06], height: [1.80, 0.05], ext: [1.92, 0.05] },
   CB: { n: 12, side: [1.08, 0.07], height: [1.68, 0.06], ext: [1.75, 0.06] },
-  SL: { n: 12, side: [1.22, 0.07], height: [1.75, 0.05], ext: [1.88, 0.05] },
+  SL: { n: 12, side: [1.24, 0.06], height: [1.78, 0.05], ext: [1.88, 0.05] },
   CH: { n: 10, side: [1.20, 0.08], height: [1.78, 0.06], ext: [1.80, 0.06] },
 };
 

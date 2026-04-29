@@ -264,6 +264,7 @@ const ArchivedStudentsTab = () => {
       name: s.name,
       team: s.teamName,
       teamAttribute: teams.find(t => t.id === s.teamId)?.attribute || "",
+      level: s.level || "",
       playerType: s.playerType || "-",
       position: s.position,
       age: calculateAge(s.birthday),
@@ -294,6 +295,7 @@ const ArchivedStudentsTab = () => {
             <TableRow>
               <TableHead>學員姓名</TableHead>
               <TableHead>所屬球隊</TableHead>
+              <TableHead>層級</TableHead>
               <TableHead>屬性</TableHead>
               <TableHead>投/野</TableHead>
               <TableHead>位置</TableHead>
@@ -310,6 +312,7 @@ const ArchivedStudentsTab = () => {
               >
                 <TableCell><span className="font-medium">{student.name}</span></TableCell>
                 <TableCell>{student.team}</TableCell>
+                <TableCell className="text-muted-foreground">{student.level || "-"}</TableCell>
                 <TableCell className="text-muted-foreground">{student.teamAttribute || "-"}</TableCell>
                 <TableCell>{student.playerType}</TableCell>
                 <TableCell>{student.position || "-"}</TableCell>
@@ -387,6 +390,7 @@ const CoachStudentsList = () => {
       team: s.teamName,
       teamId: s.teamId,
       teamAttribute: teams.find(t => t.id === s.teamId)?.attribute || "",
+      level: s.level || "",
       playerType: s.playerType || "-",
       position: s.position,
       age: calculateAge(s.birthday),
@@ -639,9 +643,10 @@ const CoachStudentsList = () => {
                       {getSortIcon("team")}
                     </div>
                   </TableHead>
+                  <TableHead>層級</TableHead>
                   <TableHead>屬性</TableHead>
                   <TableHead>投/野</TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer select-none hover:text-foreground transition-colors"
                     onClick={() => handleSort("position")}
                   >
@@ -669,6 +674,7 @@ const CoachStudentsList = () => {
                       <span className="font-medium">{student.name}</span>
                     </TableCell>
                     <TableCell>{student.team}</TableCell>
+                    <TableCell className="text-muted-foreground">{student.level || "-"}</TableCell>
                     <TableCell className="text-muted-foreground">{student.teamAttribute || "-"}</TableCell>
                     <TableCell>{student.playerType}</TableCell>
                     <TableCell>{student.position || "-"}</TableCell>

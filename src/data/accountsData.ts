@@ -30,6 +30,11 @@ export interface RoleData {
   description: string;
   permissions: Record<PermissionModuleId, ModulePermission>;
   isSystem?: boolean; // System roles cannot be deleted
+  /**
+   * 此角色上傳的檢測資料是否納入「層級比較」與「檢測報告比較」的母體。
+   * 預設僅 Admin、場館教練 為 true；球隊教練上傳的資料不納入比較母體。
+   */
+  includeInLevelComparison?: boolean;
 }
 
 // Default permissions (all false except locked ones)
@@ -52,6 +57,7 @@ export const rolesData: RoleData[] = [
     name: "Admin",
     description: "系統管理員，擁有所有權限",
     isSystem: true,
+    includeInLevelComparison: true,
     permissions: {
       home: { view: true, edit: true, fullSite: true },
       students: { view: true, edit: true, fullSite: true },
@@ -69,6 +75,7 @@ export const rolesData: RoleData[] = [
     name: "場館教練",
     description: "負責場館內所有學員的訓練與管理",
     isSystem: false,
+    includeInLevelComparison: true,
     permissions: {
       home: { view: true, edit: true, fullSite: true },
       students: { view: true, edit: true, fullSite: true },
@@ -86,6 +93,7 @@ export const rolesData: RoleData[] = [
     name: "球隊教練",
     description: "負責特定球隊學員的訓練",
     isSystem: false,
+    includeInLevelComparison: false,
     permissions: {
       home: { view: true, edit: true, fullSite: false },
       students: { view: true, edit: false, fullSite: false },

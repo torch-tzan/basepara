@@ -4,8 +4,9 @@
     {
       "name": "dev",
       "runtimeExecutable": "/Users/tinatzan/.nvm/versions/node/v24.14.1/bin/node",
-      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "8080", "--host"],
-      "port": 8080
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--host"],
+      "port": 8080,
+      "autoPort": true
     },
     {
       "name": "preview",

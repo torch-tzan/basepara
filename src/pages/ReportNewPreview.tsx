@@ -134,6 +134,7 @@ const ReportNewPreview = () => {
       previous_dates: draft.previousDates,
       level_baseline: draft.levelBaseline,
       test_method: draft.testMethod,
+      missing_sections: draft.excludedSections ?? [],
     };
 
     try {

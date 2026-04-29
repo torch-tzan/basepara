@@ -31,6 +31,9 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useStudents } from "@/contexts/StudentsContext";
+import { useDataSource } from "@/hooks/useDataSource";
+import { dataSourceLabels } from "@/types/dataSource";
+import type { DataSourceMeta } from "@/types/dataSource";
 import { cn } from "@/lib/utils";
 
 /**
@@ -61,9 +64,21 @@ const BATCH_FIELDS: BatchField[] = [
 /** 每個欄位對應的檔案（訓練影片允許多檔，其餘單檔） */
 type FieldFilesMap = Record<string, File[]>;
 
+/**
+ * 上傳完成後產生的批次紀錄（mock 資料層使用）
+ * 每筆 entry 都會帶上 data_source 標籤，後續 Supabase 寫入只需直接落表
+ */
+interface BatchUploadRecord {
+  studentId: string;
+  date: string;
+  fields: Record<string, { fileName: string; size: number }[]>;
+  dataSourceMeta: DataSourceMeta;
+}
+
 const DailyBatchUpload = () => {
   const { students } = useStudents();
   const { toast } = useToast();
+  const { dataSource, meta: dataSourceMeta } = useDataSource();
 
   const [studentId, setStudentId] = useState<string>("");
   const [date, setDate] = useState<Date>(new Date());
@@ -118,6 +133,24 @@ const DailyBatchUpload = () => {
     setIsUploading(true);
     setProgress(0);
 
+    // 組裝批次紀錄（mock）— 每筆都附上 data_source 標籤
+    // 待整合 Supabase 後，這個 record 直接對應寫入 row 的 payload
+    const record: BatchUploadRecord = {
+      studentId,
+      date: format(date, "yyyy-MM-dd"),
+      fields: Object.fromEntries(
+        Object.entries(fieldFiles).map(([key, list]) => [
+          key,
+          list.map((f) => ({ fileName: f.name, size: f.size })),
+        ]),
+      ),
+      dataSourceMeta,
+    };
+    // mock 環境：留下 console 以利驗證 data_source 是否正確帶入
+    if (import.meta.env.DEV) {
+      console.debug("[DailyBatchUpload] submit record", record);
+    }
+
     // 模擬上傳進度
     const timer = setInterval(() => {
       setProgress((p) => {
@@ -127,7 +160,7 @@ const DailyBatchUpload = () => {
           toast({
             variant: "success",
             title: "✓ 當日批次上傳完成",
-            description: `已上傳 ${totalFiles} 個檔案（${format(date, "yyyy/MM/dd")}）`,
+            description: `已上傳 ${totalFiles} 個檔案（${format(date, "yyyy/MM/dd")}・來源：${dataSourceLabels[dataSource]}）`,
           });
           setFieldFiles({});
           return 0;
